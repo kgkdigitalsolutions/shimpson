@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111111">
+  <meta name="description" content="Simpson Burguer — hambúrguer artesanal, combos e delivery.">
+  <title>Simpson Burguer | Peça online</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="announcement"><span class="dot"></span> PEDIDOS ABERTOS <span class="announcement-sep">•</span> DELIVERY E RETIRADA</div>
+  <header class="site-header">
+    <a class="brand" href="#" data-page="home" aria-label="Simpson Burguer início">
+      <span class="brand-mark">SB</span>
+      <span class="brand-name">SIMPSON <b>BURGUER</b><small>SMASH • BURGER • DELIVERY</small></span>
+    </a>
+    <nav class="main-nav" aria-label="Navegação principal">
+      <a href="#cardapio">Cardápio</a><a href="#sobre">A casa</a>
+    </nav>
+    <div class="header-actions">
+      <button class="icon-button track-shortcut" id="trackShortcut" title="Acompanhar pedido">⌁ <span>Acompanhar</span></button>
+      <button class="cart-button" id="openCart">Sacola <span class="cart-count" id="cartCount">0</span></button>
+      <button class="menu-toggle" id="menuToggle" aria-label="Abrir menu">☰</button>
+    </div>
+  </header>
+
+  <main id="homePage">
+    <section class="hero">
+      <div class="hero-content">
+        <span class="eyebrow"><span class="eyebrow-line"></span> O BURGER QUE VOCÊ MERECE</span>
+        <h1>MORDIDA<br>DE <em>RESPEITO.</em></h1>
+        <p>Hambúrguer artesanal, ingredientes selecionados e aquele sabor que transforma qualquer dia.</p>
+        <div class="hero-actions"><a class="button button-primary" href="#cardapio">ESCOLHER MEU BURGER <span>↗</span></a><span class="hero-note">Feito na hora. Do nosso jeito.</span></div>
+      </div>
+      <div class="hero-image" role="img" aria-label="Hambúrguer artesanal com queijo e bacon">
+        <div class="hero-stamp"><strong>100%</strong><span>NA CHAPA<br>NA HORA</span></div>
+        <div class="hero-image-caption">SIMPLESMENTE<br><b>IRRESISTÍVEL.</b></div>
+      </div>
+      <div class="hero-bottom"><span>01 / SABOR DE VERDADE</span><span>DESLIZE PARA DESCOBRIR ↓</span></div>
+    </section>
+
+    <section class="benefit-strip">
+      <div><span class="benefit-icon">✦</span><span><b>ARTESANAL</b><small>Feito com cuidado</small></span></div>
+      <div><span class="benefit-icon">⌁</span><span><b>DELIVERY</b><small>Na porta da sua casa</small></span></div>
+      <div><span class="benefit-icon">◈</span><span><b>PAGAMENTO FÁCIL</b><small>Pix ou cartão</small></span></div>
+    </section>
+
+    <section class="menu-section section-wrap" id="cardapio">
+      <div class="section-heading">
+        <div><span class="eyebrow">ESCOLHA O SEU FAVORITO</span><h2>MENU <em>DA CASA.</em></h2></div>
+        <p>Seu próximo favorito está<br> a um clique de distância.</p>
+      </div>
+      <div class="menu-toolbar">
+        <div class="category-tabs" id="categoryTabs">
+          <button class="category-tab active" data-category="todos">Todos</button>
+          <button class="category-tab" data-category="burgers">Burgers</button>
+          <button class="category-tab" data-category="combos">Combos</button>
+          <button class="category-tab" data-category="acompanhamentos">Acompanhamentos</button>
+          <button class="category-tab" data-category="bebidas">Bebidas</button>
+        </div>
+        <label class="search-box"><span>⌕</span><input id="searchInput" type="search" placeholder="Buscar no cardápio"></label>
+      </div>
+      <div class="product-grid" id="productGrid"></div>
+    </section>
+
+    <section class="promo-band" id="sobre">
+      <div class="promo-symbol">SB<span>®</span></div>
+      <div><span class="eyebrow">A FILOSOFIA SIMPSON</span><h2>SEM ATALHO.<br><em>SÓ SABOR.</em></h2></div>
+      <p>A gente acredita que um bom burger começa na escolha dos ingredientes e termina naquele sorriso depois da primeira mordida.</p>
+    </section>
+    <footer class="site-footer">
+      <a class="brand" href="#"><span class="brand-mark">SB</span><span class="brand-name">SIMPSON <b>BURGUER</b><small>SMASH • BURGER • DELIVERY</small></span></a>
+      <span>© <span id="year"></span> Simpson Burguer. Todos os direitos reservados.</span>
+      <button class="admin-link" id="adminShortcut">Acesso administrativo</button>
+    </footer>
+  </main>
+
+  <main id="trackingPage" class="inner-page hidden">
+    <button class="back-link" data-page="home">← Voltar à loja</button>
+    <div class="inner-heading"><span class="eyebrow">ESTAMOS COM VOCÊ</span><h1>ACOMPANHE<br><em>SEU PEDIDO.</em></h1><p>Informe o número do pedido para acompanhar o andamento.</p></div>
+    <form class="track-form" id="trackForm"><input id="trackNumber" placeholder="Ex.: 1001" required><button class="button button-primary">CONSULTAR</button></form>
+    <div id="trackingResult"></div>
+  </main>
+
+  <main id="adminPage" class="inner-page hidden">
+    <button class="back-link" data-page="home">← Voltar à loja</button>
+    <div class="admin-title"><div><span class="eyebrow">SIMPSON BURGUER / GESTÃO</span><h1>PAINEL <em>ADMIN.</em></h1></div><button class="button button-outline hidden" id="logoutButton">SAIR</button></div>
+    <section id="adminLogin" class="login-card">
+      <div class="login-icon">SB</div><h2>Área administrativa</h2><p>Acesse para gerenciar produtos, pedidos e entregas.</p>
+      <form id="loginForm"><label>Senha de demonstração<input id="adminPassword" type="password" placeholder="Digite a senha" required></label><button class="button button-primary full">ENTRAR NO PAINEL</button></form>
+      <small>Senha inicial: <b>1234</b>. Altere antes de qualquer uso público.</small>
+      <p class="form-error" id="loginError"></p>
+    </section>
+    <section id="adminDashboard" class="hidden">
+      <div class="stats-grid" id="adminStats"></div>
+      <div class="admin-tabs"><button class="active" data-admin-tab="orders">Pedidos</button><button data-admin-tab="products">Produtos</button><button data-admin-tab="delivery">Entrega</button></div>
+      <div id="adminOrders" class="admin-panel"></div>
+      <div id="adminProducts" class="admin-panel hidden"></div>
+      <div id="adminDelivery" class="admin-panel hidden"></div>
+    </section>
+  </main>
+
+  <div class="overlay hidden" id="overlay"></div>
+  <aside class="cart-drawer" id="cartDrawer" aria-label="Sacola de compras">
+    <div class="drawer-header"><div><span class="eyebrow">SEU PEDIDO</span><h2>SUA <em>SACOLA.</em></h2></div><button class="close-button" data-close>×</button></div>
+    <div class="cart-items" id="cartItems"></div>
+    <div class="cart-summary"><div><span>Subtotal</span><b id="cartSubtotal">R$ 0,00</b></div><small>Entrega calculada na finalização.</small><button class="button button-primary full" id="goCheckout">CONTINUAR <span>→</span></button></div>
+  </aside>
+
+  <div class="modal hidden" id="productModal">
+    <div class="modal-card product-modal-card"><button class="close-button modal-close" data-close>×</button><div id="productModalContent"></div></div>
+  </div>
+  <div class="modal hidden" id="checkoutModal">
+    <div class="modal-card checkout-card"><button class="close-button modal-close" data-close>×</button>
+      <span class="eyebrow">SÓ MAIS UM PASSO</span><h2>FINALIZAR <em>PEDIDO.</em></h2>
+      <form id="checkoutForm">
+        <div class="form-section"><h3>01 / Seus dados</h3><div class="form-grid"><label class="span-2">Nome completo<input id="customerName" required autocomplete="name"></label><label>Telefone / WhatsApp<input id="customerPhone" required type="tel" autocomplete="tel" placeholder="(00) 00000-0000"></label><label>Como vai receber?<select id="fulfillment"><option value="delivery">Entrega em casa</option><option value="pickup">Retirada no balcão</option></select></label></div></div>
+        <div class="form-section" id="addressSection"><h3>02 / Endereço de entrega</h3><div class="form-grid"><label>CEP<input id="customerCep" placeholder="00000-000"></label><label>Rua / Avenida<input id="customerStreet"></label><label>Número<input id="customerNumber"></label><label>Bairro<input id="customerNeighborhood"></label><label class="span-2">Complemento / referência<input id="customerComplement"></label></div></div>
+        <div class="form-section"><h3>03 / Pagamento</h3><div class="payment-options"><label><input type="radio" name="payment" value="pix" checked><span>◈ <b>Pix</b><small>Pagamento instantâneo</small></span></label><label><input type="radio" name="payment" value="card"><span>▣ <b>Cartão</b><small>Crédito ou débito</small></span></label><label><input type="radio" name="payment" value="cash"><span>R$ <b>Na entrega</b><small>Dinheiro / maquininha</small></span></label></div><p class="notice">Nesta versão de teste, o pagamento é apenas demonstrativo. Nenhuma cobrança real será feita.</p></div>
+        <div class="checkout-total"><div><span>Produtos</span><b id="checkoutSubtotal">R$ 0,00</b></div><div><span>Entrega</span><b id="checkoutFee">R$ 0,00</b></div><div class="grand-total"><span>Total</span><b id="checkoutTotal">R$ 0,00</b></div></div>
+        <button class="button button-primary full" type="submit">CONFIRMAR PEDIDO <span>→</span></button>
+      </form>
+    </div>
+  </div>
+  <div class="modal hidden" id="successModal"><div class="modal-card success-card"><button class="close-button modal-close" data-close>×</button><div class="success-check">✓</div><span class="eyebrow">PEDIDO REGISTRADO</span><h2>VALEU PELA<br><em>CONFIANÇA!</em></h2><p>Seu pedido foi salvo nesta demonstração.</p><div class="order-number">PEDIDO <b id="successOrderNumber">#1001</b></div><p id="successOrderTotal" class="success-total"></p><div class="delivery-code-box"><small>SEU CÓDIGO DE CONFIRMAÇÃO DA ENTREGA</small><b id="successDeliveryCode">000000</b><p>Informe este código ao entregador somente quando receber seu pedido. Ele será necessário para confirmar a entrega.</p></div><button class="button button-primary full" id="successTrack">ACOMPANHAR PEDIDO</button></div></div>
+  <div class="toast" id="toast"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
