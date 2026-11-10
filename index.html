@@ -7,6 +7,9 @@
   <meta name="description" content="Simpson Burguer — hambúrguer artesanal, combos e delivery.">
   <title>Simpson Burguer | Peça online</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <!-- Supabase Client Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
@@ -19,7 +22,7 @@
       <span class="brand-name">SIMPSON <b>BURGUER</b><small>SMASH • BURGER • DELIVERY</small></span>
     </a>
     <nav class="main-nav" aria-label="Navegação principal">
-      <a href="#cardapio">Cardápio</a><a href="#sobre">A casa</a>
+      <a href="#cardapio">Cardápio</a><a href="#sobre">A casa</a><a href="#" data-page="myOrdersPage">Meus Pedidos</a>
     </nav>
     <div class="header-actions">
       <button class="icon-button track-shortcut" id="trackShortcut" title="Acompanhar pedido">⌁ <span>Acompanhar</span></button>
@@ -86,19 +89,76 @@
     <div id="trackingResult"></div>
   </main>
 
+  <main id="myOrdersPage" class="inner-page hidden">
+    <button class="back-link" data-page="home">← Voltar à loja</button>
+    <div class="inner-heading"><span class="eyebrow">HISTÓRICO</span><h1>MEUS <em>PEDIDOS.</em></h1><p>Acompanhe seu histórico de compras.</p></div>
+
+    <div id="myOrdersUserBar" class="hidden" style="max-width: 500px; margin: 0 auto 20px; display: flex; justify-content: space-between; align-items: center; background: #1a1a1a; padding: 12px 18px; border-radius: 8px; border: 1px solid #333;">
+      <span style="font-size: 13px; color: #ccc;">Conectado como <b id="myOrdersUserEmail" style="color: var(--yellow);"></b></span>
+      <button class="button button-outline" id="myOrdersLogoutBtn" style="padding: 6px 14px; min-height: auto; font-size: 11px;">SAIR</button>
+    </div>
+
+    <div id="myOrdersGuestPrompt" class="hidden" style="max-width: 500px; margin: 0 auto 20px; text-align: center; background: #221c08; border: 1px solid #66551b; padding: 12px 16px; border-radius: 8px; font-size: 13px; color: #d8c77b;">
+      <span>Pedidos salvos neste navegador. <a href="#" id="openGuestAuthBtn" style="color: var(--yellow); font-weight: bold; text-decoration: underline; margin-left: 5px;">Entrar ou criar conta</a> para sincronizar.</span>
+    </div>
+
+    <div id="myOrdersAuth" class="login-card" style="max-width: 400px; margin: 0 auto;">
+      <div class="login-icon">👤</div>
+      <h2 id="authTitle">Entrar</h2>
+      <p id="authDesc">Acesse sua conta para ver seus pedidos.</p>
+
+      <form id="authForm">
+        <label>E-mail<input id="authEmail" type="email" required placeholder="email@exemplo.com"></label>
+        <label>Senha<input id="authPassword" type="password" required placeholder="******"></label>
+        <div id="authConfirmGroup" class="hidden">
+          <label>Confirmar Senha<input id="authConfirmPassword" type="password" placeholder="******"></label>
+        </div>
+        <button class="button button-primary full" id="authSubmit" type="submit">ENTRAR</button>
+      </form>
+
+      <div style="margin-top: 20px; text-align: center; font-size: 14px; color: #aaa;">
+        <span id="authToggleText">Não tem uma conta?</span>
+        <a href="#" id="authToggle" style="color: var(--yellow); text-decoration: none; font-weight: bold;">Cadastre-se aqui</a>
+      </div>
+    </div>
+
+    <div id="myOrdersList" class="hidden" style="max-width: 700px; margin: 30px auto 0; display: grid; gap: 20px;"></div>
+    <div id="myOrdersEmpty" class="hidden" style="text-align: center; margin-top: 30px; color: #888;">
+      <div style="font-size: 40px;">📦</div>
+      <p>Você ainda não realizou pedidos.</p>
+    </div>
+  </main>
+
   <main id="adminPage" class="inner-page hidden">
     <button class="back-link" data-page="home">← Voltar à loja</button>
     <div class="admin-title"><div><span class="eyebrow">SIMPSON BURGUER / GESTÃO</span><h1>PAINEL <em>ADMIN.</em></h1></div><button class="button button-outline hidden" id="logoutButton">SAIR</button></div>
     <section id="adminLogin" class="login-card">
-      <div class="login-icon">SB</div><h2>Área administrativa</h2><p>Acesse para gerenciar produtos, pedidos e entregas.</p>
-      <form id="loginForm"><label>Senha de demonstração<input id="adminPassword" type="password" placeholder="Digite a senha" required></label><button class="button button-primary full">ENTRAR NO PAINEL</button></form>
-      <small>Senha inicial: <b>1234</b>. Altere antes de qualquer uso público.</small>
+      <div class="login-icon">SB</div>
+      <h2>Área administrativa</h2>
+      <p>Acesse para gerenciar produtos, pedidos e entregas.</p>
+      <form id="loginForm">
+        <label>E-mail do administrador<input id="adminEmail" type="email" placeholder="admin@simpson.com" required></label>
+        <label>Senha do administrador<input id="adminPassword" type="password" placeholder="Digite a senha" required></label>
+        <button class="button button-primary full" type="submit">ENTRAR NO PAINEL</button>
+      </form>
+      <small style="display:block; margin-top:15px; color:#aaa; font-size:13px;">Acesso inicial: <b>admin@simpson.com</b> / senha: <b>admin1234</b></small>
       <p class="form-error" id="loginError"></p>
     </section>
     <section id="adminDashboard" class="hidden">
       <div class="stats-grid" id="adminStats"></div>
-      <div class="admin-tabs"><button class="active" data-admin-tab="orders">Pedidos</button><button data-admin-tab="products">Produtos</button><button data-admin-tab="delivery">Entrega</button></div>
-      <div id="adminOrders" class="admin-panel"></div>
+      <div class="admin-tabs">
+        <button class="active" data-admin-tab="orders">Pedidos</button>
+        <button data-admin-tab="products">Produtos</button>
+        <button data-admin-tab="delivery">Entrega</button>
+      </div>
+      <div id="adminOrders" class="admin-panel">
+        <div class="admin-filter-bar" style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px; background: #222; padding: 10px; border-radius: 8px; border: 1px solid #333;">
+          <span style="font-size: 12px; color: #aaa; font-weight: 600;">FILTRAR DATA:</span>
+          <input type="date" id="adminOrderDate" style="background: #333; color: #fff; border: 1px solid #444; padding: 5px; border-radius: 4px; font-family: inherit;">
+          <button class="button button-primary" id="filterOrdersBtn" style="padding: 5px 15px; font-size: 12px; cursor: pointer;">FILTRAR</button>
+        </div>
+        <div id="ordersContainer"></div>
+      </div>
       <div id="adminProducts" class="admin-panel hidden"></div>
       <div id="adminDelivery" class="admin-panel hidden"></div>
     </section>
@@ -126,7 +186,24 @@
       </form>
     </div>
   </div>
-  <div class="modal hidden" id="successModal"><div class="modal-card success-card"><button class="close-button modal-close" data-close>×</button><div class="success-check">✓</div><span class="eyebrow">PEDIDO REGISTRADO</span><h2>VALEU PELA<br><em>CONFIANÇA!</em></h2><p>Seu pedido foi salvo nesta demonstração.</p><div class="order-number">PEDIDO <b id="successOrderNumber">#1001</b></div><p id="successOrderTotal" class="success-total"></p><div class="delivery-code-box"><small>SEU CÓDIGO DE CONFIRMAÇÃO DA ENTREGA</small><b id="successDeliveryCode">000000</b><p>Informe este código ao entregador somente quando receber seu pedido. Ele será necessário para confirmar a entrega.</p></div><button class="button button-primary full" id="successTrack">ACOMPANHAR PEDIDO</button></div></div>
+  <div class="modal hidden" id="successModal">
+    <div class="modal-card success-card">
+      <button class="close-button modal-close" data-close>×</button>
+      <div class="success-check">✓</div>
+      <span class="eyebrow">PEDIDO REGISTRADO</span>
+      <h2>VALEU PELA<br><em>CONFIANÇA!</em></h2>
+      <p>Seu pedido foi salvo com sucesso!</p>
+      <div class="order-number">PEDIDO <b id="successOrderNumber">#1001</b></div>
+      <p id="successOrderTotal" class="success-total"></p>
+      <div class="delivery-code-box">
+        <small>SEU CÓDIGO DE CONFIRMAÇÃO DA ENTREGA</small>
+        <b id="successDeliveryCode">000000</b>
+        <p>Informe este código ao entregador somente quando receber seu pedido. Ele será necessário para confirmar a entrega.</p>
+      </div>
+      <button class="button button-primary full" id="successTrack">ACOMPANHAR PEDIDO</button>
+      <button class="button button-outline full" id="successMyOrders" style="margin-top: 10px;">VER MEUS PEDIDOS</button>
+    </div>
+  </div>
   <div class="toast" id="toast"></div>
   <script type="module" src="/app.js"></script>
 </body>
