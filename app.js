@@ -22,6 +22,152 @@
   let adminFilterDate = new Date().toISOString().split('T')[0];
   let currentUser = null;
 
+  let pixSettings = {
+    key: "07748236151",
+    name: "SIMPSON BURGUER",
+    city: "SAO PAULO"
+  };
+
+  class GeradorPix {
+    static ID_PAYLOAD_FORMAT_INDICATOR = "00";
+    static ID_MERCHANT_ACCOUNT_INFORMATION = "26";
+    static ID_MERCHANT_ACCOUNT_INFORMATION_GUI = "00";
+    static ID_MERCHANT_ACCOUNT_INFORMATION_KEY = "01";
+    static ID_MERCHANT_CATEGORY_CODE = "52";
+    static ID_TRANSACTION_CURRENCY = "53";
+    static ID_TRANSACTION_AMOUNT = "54";
+    static ID_COUNTRY_CODE = "58";
+    static ID_MERCHANT_NAME = "59";
+    static ID_MERCHANT_CITY = "60";
+    static ID_ADDITIONAL_DATA_FIELD_TEMPLATE = "62";
+    static ID_ADDITIONAL_DATA_FIELD_TEMPLATE_TXID = "05";
+    static ID_CRC16 = "63";
+
+    constructor(chavePix, nomeRecebedor, cidadeRecebedor, valor = null) {
+      this.chavePix = this._sanitizarChave(chavePix);
+      this.nomeRecebedor = this._validarTexto(nomeRecebedor || "SIMPSON BURGUER", 25);
+      this.cidadeRecebedor = this._validarTexto(cidadeRecebedor || "SAO PAULO", 15);
+      this.valor = valor ? this._formatarValor(valor) : null;
+      this.txid = "***";
+    }
+
+    _sanitizarChave(chave) {
+      if (!chave) return "";
+      chave = String(chave).trim();
+      // E-mail
+      if (chave.includes("@")) return chave.toLowerCase();
+
+      const digitos = chave.replace(/\D/g, "");
+      // Chave já com prefixo internacional +55
+      if (chave.startsWith("+")) return "+" + digitos;
+      // Telefone com código do país 55 já inserido
+      if ((digitos.length === 12 || digitos.length === 13) && digitos.startsWith("55")) return "+" + digitos;
+      // CNPJ (14 dígitos)
+      if (digitos.length === 14) return digitos;
+      // CPF (11 dígitos) ou celular
+      if (digitos.length === 11) {
+        if (chave.includes("(") || chave.includes(")")) return "+55" + digitos;
+        if (this._ehCPFValido(digitos)) return digitos;
+        if (parseInt(digitos.substring(2, 3)) === 9) return "+55" + digitos;
+        return digitos;
+      }
+      // Telefone com DDD (10 dígitos)
+      if (digitos.length === 10) return "+55" + digitos;
+      // Chave aleatória (UUID) ou texto
+      return chave.trim();
+    }
+
+    _ehCPFValido(cpf) {
+      cpf = String(cpf).replace(/\D/g, "");
+      if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
+      let soma = 0, resto;
+      for (let i = 1; i <= 9; i++) soma += parseInt(cpf.substring(i - 1, i)) * (11 - i);
+      resto = (soma * 10) % 11;
+      if (resto === 10 || resto === 11) resto = 0;
+      if (resto !== parseInt(cpf.substring(9, 10))) return false;
+      soma = 0;
+      for (let i = 1; i <= 10; i++) soma += parseInt(cpf.substring(i - 1, i)) * (12 - i);
+      resto = (soma * 10) % 11;
+      if (resto === 10 || resto === 11) resto = 0;
+      return resto === parseInt(cpf.substring(10, 11));
+    }
+
+    _validarTexto(texto, maxLen) {
+      texto = String(texto || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^A-Za-z0-9 ]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (texto.length > maxLen) texto = texto.substring(0, maxLen);
+      return texto.toUpperCase() || "RECEBEDOR";
+    }
+
+    _formatarValor(valor) {
+      return Number(valor).toFixed(2);
+    }
+
+    _formatarCampo(idCampo, valor) {
+      const tamanho = valor.length.toString().padStart(2, "0");
+      return `${idCampo}${tamanho}${valor}`;
+    }
+
+    _montarPayload() {
+      const gui = this._formatarCampo(GeradorPix.ID_MERCHANT_ACCOUNT_INFORMATION_GUI, "br.gov.bcb.pix");
+      const chave = this._formatarCampo(GeradorPix.ID_MERCHANT_ACCOUNT_INFORMATION_KEY, this.chavePix);
+      const campo26 = this._formatarCampo(GeradorPix.ID_MERCHANT_ACCOUNT_INFORMATION, `${gui}${chave}`);
+
+      const txidFormatado = this._formatarCampo(GeradorPix.ID_ADDITIONAL_DATA_FIELD_TEMPLATE_TXID, this.txid);
+      const campo62 = this._formatarCampo(GeradorPix.ID_ADDITIONAL_DATA_FIELD_TEMPLATE, txidFormatado);
+
+      // Padrão BACEN BR Code para QR Code Estático: Tag 00 obrigatória, Tag 01 omitida
+      let payload = [
+        this._formatarCampo(GeradorPix.ID_PAYLOAD_FORMAT_INDICATOR, "01"),
+        campo26,
+        this._formatarCampo(GeradorPix.ID_MERCHANT_CATEGORY_CODE, "0000"),
+        this._formatarCampo(GeradorPix.ID_TRANSACTION_CURRENCY, "986"),
+      ];
+
+      if (this.valor) {
+        payload.push(this._formatarCampo(GeradorPix.ID_TRANSACTION_AMOUNT, this.valor));
+      }
+
+      payload.push(
+        this._formatarCampo(GeradorPix.ID_COUNTRY_CODE, "BR"),
+        this._formatarCampo(GeradorPix.ID_MERCHANT_NAME, this.nomeRecebedor),
+        this._formatarCampo(GeradorPix.ID_MERCHANT_CITY, this.cidadeRecebedor),
+        campo62
+      );
+
+      return payload.join("");
+    }
+
+    _calcularCRC16(payload) {
+      const payloadComCrcId = payload + GeradorPix.ID_CRC16 + "04";
+      let polinomio = 0x1021;
+      let resultado = 0xFFFF;
+      const bytes = new TextEncoder().encode(payloadComCrcId);
+
+      for (const byte of bytes) {
+        resultado ^= (byte << 8);
+        for (let i = 0; i < 8; i++) {
+          if ((resultado & 0x8000) !== 0) {
+            resultado = ((resultado << 1) ^ polinomio) & 0xFFFF;
+          } else {
+            resultado = (resultado << 1) & 0xFFFF;
+          }
+        }
+      }
+      return (resultado & 0xFFFF).toString(16).toUpperCase().padStart(4, "0");
+    }
+
+    gerarCodigo() {
+      const payload = this._montarPayload();
+      const crc = this._calcularCRC16(payload);
+      return `${payload}${GeradorPix.ID_CRC16}04${crc}`;
+    }
+  }
+
   const extras = [
     { name: "Bacon extra", price: 5 },
     { name: "Queijo extra", price: 4 },
@@ -188,10 +334,29 @@
   };
 
   const loadSettings = async () => {
-    const { data } = await supabaseClient.from('settings').select('value').eq('key', 'delivery_fee').single();
-    if (data && data.value !== undefined) {
-      deliveryFee = parseFloat(data.value) || 5.00;
-    }
+    try {
+      const savedPix = localStorage.getItem("sb_pix_settings");
+      if (savedPix) {
+        const parsed = JSON.parse(savedPix);
+        if (parsed.key && parsed.key !== "simpsonburguer@gmail.com") {
+          pixSettings = { ...pixSettings, ...parsed };
+        } else {
+          pixSettings = { ...pixSettings, ...parsed, key: "07748236151" };
+        }
+      }
+      const savedFee = localStorage.getItem("sb_delivery_fee");
+      if (savedFee) deliveryFee = parseFloat(savedFee) || 5.00;
+
+      const { data } = await supabaseClient.from('settings').select('*');
+      if (data && data.length) {
+        data.forEach(item => {
+          if (item.key === 'delivery_fee') deliveryFee = parseFloat(item.value) || 5.00;
+          if (item.key === 'pix_key' && item.value && item.value !== "simpsonburguer@gmail.com") pixSettings.key = item.value;
+          if (item.key === 'pix_name') pixSettings.name = item.value;
+          if (item.key === 'pix_city') pixSettings.city = item.value;
+        });
+      }
+    } catch (e) {}
   };
 
   const loadOrders = async () => {
@@ -339,7 +504,24 @@
     $("cartDrawer").classList.add("open");
   };
 
+  let pixRealtimeChannel = null;
+  let pixPollInterval = null;
+
+  const cleanupPixSubscriptions = () => {
+    if (pixRealtimeChannel) {
+      try {
+        supabaseClient.removeChannel(pixRealtimeChannel);
+      } catch (e) {}
+      pixRealtimeChannel = null;
+    }
+    if (pixPollInterval) {
+      clearInterval(pixPollInterval);
+      pixPollInterval = null;
+    }
+  };
+
   const closeLayers = () => {
+    cleanupPixSubscriptions();
     $("overlay").classList.add("hidden");
     $("cartDrawer").classList.remove("open");
     document.querySelectorAll(".modal").forEach(m => m.classList.add("hidden"));
@@ -557,11 +739,156 @@
   };
 
   const updateCheckoutTotals = () => {
-    const fee = $("fulfillment").value === "delivery" ? deliveryFee : 0;
+    const isDelivery = $("fulfillment").value === "delivery";
+    const fee = isDelivery ? deliveryFee : 0;
     $("checkoutSubtotal").textContent = money(cartSubtotal());
     $("checkoutFee").textContent = money(fee);
     $("checkoutTotal").textContent = money(cartSubtotal() + fee);
-    $("addressSection").classList.toggle("hidden", $("fulfillment").value !== "delivery");
+    $("addressSection").classList.toggle("hidden", !isDelivery);
+
+    const street = $("customerStreet");
+    const number = $("customerNumber");
+    const neighborhood = $("customerNeighborhood");
+    if (street) street.required = isDelivery;
+    if (number) number.required = isDelivery;
+    if (neighborhood) neighborhood.required = isDelivery;
+  };
+
+  const openPixPaymentModal = (order) => {
+    cleanupPixSubscriptions();
+
+    const gerador = new GeradorPix(
+      pixSettings.key,
+      pixSettings.name,
+      pixSettings.city,
+      order.total
+    );
+    const pixCode = gerador.gerarCodigo();
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pixCode)}`;
+
+    $("pixOrderNumber").textContent = "#" + order.id;
+    $("pixOrderTotal").textContent = money(order.total);
+    $("pixCopiaColaInput").value = pixCode;
+
+    // Renderiza QR Code: prioriza renderização local via QRCode.js (nítido e instantâneo)
+    const qrDiv = $("pixQrCode");
+    const qrImg = $("pixQrImage");
+
+    if (window.QRCode && qrDiv) {
+      qrDiv.innerHTML = "";
+      qrDiv.style.display = "flex";
+      if (qrImg) qrImg.style.display = "none";
+      try {
+        new window.QRCode(qrDiv, {
+          text: pixCode,
+          width: 200,
+          height: 200,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: window.QRCode.CorrectLevel.M
+        });
+      } catch (err) {
+        console.error("Erro no QRCode local, usando fallback de imagem:", err);
+        if (qrImg) {
+          qrDiv.style.display = "none";
+          qrImg.style.display = "block";
+          qrImg.src = qrUrl;
+        }
+      }
+    } else if (qrImg) {
+      if (qrDiv) qrDiv.style.display = "none";
+      qrImg.style.display = "block";
+      qrImg.onerror = () => {
+        qrImg.onerror = null;
+        qrImg.src = `https://quickchart.io/qr?text=${encodeURIComponent(pixCode)}&size=250`;
+      };
+      qrImg.src = qrUrl;
+    }
+
+    const indicator = $("pixStatusIndicator");
+    indicator.style.background = "#26210f";
+    indicator.style.borderColor = "#665219";
+    indicator.style.color = "var(--yellow)";
+    indicator.innerHTML = '<span class="pulse-dot"></span><span id="pixStatusText">Aguardando pagamento...</span>';
+
+    const btnCopiar = $("btnCopiarPix");
+    btnCopiar.textContent = "COPIAR";
+    btnCopiar.onclick = () => {
+      const copyFallback = () => {
+        const inp = $("pixCopiaColaInput");
+        inp.select();
+        inp.setSelectionRange(0, 99999);
+        document.execCommand("copy");
+        btnCopiar.textContent = "COPIADO! ✓";
+        toast("Código Pix copiado!");
+        setTimeout(() => btnCopiar.textContent = "COPIAR", 3000);
+      };
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(pixCode).then(() => {
+          btnCopiar.textContent = "COPIADO! ✓";
+          toast("Código Pix copiado!");
+          setTimeout(() => btnCopiar.textContent = "COPIAR", 3000);
+        }).catch(copyFallback);
+      } else {
+        copyFallback();
+      }
+    };
+
+    $("btnPixGoTracking").onclick = () => {
+      cleanupPixSubscriptions();
+      closeLayers();
+      showTracking(order);
+    };
+
+    let paymentHandled = false;
+    const handlePaymentSuccess = (updatedOrder) => {
+      if (paymentHandled) return;
+      paymentHandled = true;
+      cleanupPixSubscriptions();
+
+      indicator.style.background = "#0f2d18";
+      indicator.style.borderColor = "#22c55e";
+      indicator.style.color = "#4ade80";
+      indicator.innerHTML = '<b style="color:#4ade80;">✓ Pagamento aprovado com sucesso!</b>';
+      toast("Pagamento Pix confirmado!");
+
+      setTimeout(() => {
+        closeLayers();
+        showTracking(updatedOrder || { ...order, status: 1 });
+      }, 2000);
+    };
+
+    if (order.status >= 1) {
+      handlePaymentSuccess(order);
+    } else {
+      try {
+        pixRealtimeChannel = supabaseClient
+          .channel(`pix_order_${order.id}`)
+          .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'orders',
+            filter: `id=eq.${order.id}`
+          }, payload => {
+            if (payload.new && payload.new.status >= 1) {
+              handlePaymentSuccess(payload.new);
+            }
+          })
+          .subscribe();
+      } catch (e) {
+        console.error("Realtime subscription error:", e);
+      }
+
+      pixPollInterval = setInterval(async () => {
+        const { data } = await supabaseClient.from('orders').select('*').eq('id', order.id).single();
+        if (data && data.status >= 1) {
+          handlePaymentSuccess(data);
+        }
+      }, 3500);
+    }
+
+    $("pixModal").classList.remove("hidden");
   };
 
   const showTracking = async order => {
@@ -574,6 +901,21 @@
         <h2 style="font:600 28px var(--display);margin:8px 0">${steps[order.status] || steps[0]}</h2>
         <p style="color:#999;font-size:13px">Olá, <b>${escapeHtml(order.customer_name)}</b>. Acompanhe as etapas abaixo.</p>
         ${steps.map((s, i) => `<div class="tracking-step ${i <= order.status ? "done" : ""}"> <span class="step-circle">${i <= order.status ? "✓" : i + 1}</span><span><b>${s}</b><small>${i === order.status ? "Etapa atual" : i < order.status ? "Concluído" : "Aguardando"}</small></span></div>`).join("")}
+
+        ${(order.payment === "pix" && order.status === 0) ? `
+          <div style="background:#241d08; border:1px solid #735914; border-radius:8px; padding:15px; margin:16px 0; text-align:center;">
+            <div style="display:inline-flex; align-items:center; gap:8px; color:var(--yellow); font-size:13px; font-weight:800; margin-bottom:6px;">
+              <span class="pulse-dot"></span> AGUARDANDO PAGAMENTO VIA PIX
+            </div>
+            <p style="font-size:12px; color:#ccc; margin:0 0 12px; line-height:1.4;">
+              Seu pedido foi registrado! Conclua o pagamento via Pix para iniciarmos a produção imediatamente.
+            </p>
+            <button type="button" id="reopenPixBtn" class="button button-primary full" style="font-size:13px; font-weight:800;">
+              ⚡ ABRIR QR CODE & COPIA E COLA DO PIX
+            </button>
+          </div>
+        ` : ""}
+
         <hr style="border:0;border-top:1px solid #333;margin:20px 0">
         
         <h3 style="font:600 18px var(--display); margin-bottom: 12px; color: #fff;">ITENS DO PEDIDO</h3>
@@ -582,9 +924,15 @@
         </div>
 
         <p style="font-size:14px;">Recebimento: <b>${order.fulfillment === "pickup" ? "Retirada no balcão" : "Entrega em casa"}</b></p>
+        <p style="font-size:14px;">Forma de pagamento: <b>${order.payment === "pix" ? "◈ Pix" : "💵 Na entrega"}</b></p>
         ${order.address ? `<p style="font-size:13px; color:#aaa;">Endereço: <b>${escapeHtml(order.address)}</b></p>` : ""}
         <p style="font-size:16px;">Total: <b style="color:var(--yellow); font-size:20px;">${money(order.total)}</b></p>
       </div>`;
+
+    const reopenPixBtn = $("reopenPixBtn");
+    if (reopenPixBtn) {
+      reopenPixBtn.onclick = () => openPixPaymentModal(order);
+    }
 
     const { data: items } = await supabaseClient.from('order_items').select('*').eq('order_id', order.id);
     const container = $("trackingItemsList");
@@ -732,16 +1080,31 @@
 
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #262626;">
             <div style="font-size: 12px; color: #999;">
-              ${o.delivery_code ? `Código de entrega: <b style="color:var(--yellow); letter-spacing:2px;">${o.delivery_code}</b>` : `Forma: <b>${o.fulfillment === "pickup" ? "Retirada" : "Delivery"}</b>`}
+              Forma: <b>${o.fulfillment === "pickup" ? "Retirada no balcão" : "Entrega em casa"}</b>
             </div>
-            <button class="button button-outline" style="min-height:36px; padding:8px 16px; font-size:11px;" data-track-my-order="${o.id}">
-              ACOMPANHAR ⌁
-            </button>
+            <div style="display: flex; gap: 8px;">
+              ${o.payment === "pix" && o.status === 0 ? `
+                <button class="button button-primary" style="min-height:36px; padding:8px 14px; font-size:11px;" data-pay-pix="${o.id}">
+                  ⚡ PAGAR PIX
+                </button>
+              ` : ""}
+              <button class="button button-outline" style="min-height:36px; padding:8px 16px; font-size:11px;" data-track-my-order="${o.id}">
+                ACOMPANHAR ⌁
+              </button>
+            </div>
           </div>
         </article>`;
     }));
 
     list.innerHTML = cardsHtml.join("");
+
+    list.querySelectorAll("[data-pay-pix]").forEach(btn => {
+      btn.onclick = () => {
+        const orderId = Number(btn.dataset.payPix);
+        const order = ordersData.find(x => x.id === orderId);
+        if (order) openPixPaymentModal(order);
+      };
+    });
 
     list.querySelectorAll("[data-track-my-order]").forEach(btn => {
       btn.onclick = () => {
@@ -761,17 +1124,27 @@
             <div class="admin-order-head">
               <div>
                 <b style="font-size: 18px;">Pedido #${o.id} · ${escapeHtml(o.customer_name)}</b>
-                <p style="font-size: 14px;">${new Date(o.created_at).toLocaleString("pt-BR")} · ${o.fulfillment === "pickup" ? "Retirada" : "Delivery"} · ${escapeHtml(o.payment.toUpperCase())}</p>
+                <p style="font-size: 14px;">${new Date(o.created_at).toLocaleString("pt-BR")} · ${o.fulfillment === "pickup" ? "Retirada" : "Delivery"} · ${escapeHtml(o.payment.toUpperCase())}
+                  ${o.payment === "pix" && o.status === 0 ? '<span style="background:#594406; color:var(--yellow); padding:2px 8px; border-radius:4px; font-size:11px; font-weight:800; margin-left:6px; border:1px solid #a67f0c;">PIX AGUARDANDO</span>' : ""}
+                  ${o.payment === "pix" && o.status >= 1 ? '<span style="background:#0f381c; color:#4ade80; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:800; margin-left:6px; border:1px solid #1f7a3f;">PIX PAGO ✓</span>' : ""}
+                </p>
               </div>
               <b style="color:var(--yellow); font-size: 20px;">${money(o.total)}</b>
             </div>
             <div id="items-${o.id}" style="background: #1a1a1a; padding: 12px; border-radius: 6px; margin: 10px 0; border-left: 4px solid var(--yellow); font-size: 15px; line-height: 1.6;">Carregando itens...</div>
             <p style="font-size: 15px;">📞 ${escapeHtml(o.customer_phone)} · 📍 ${escapeHtml(o.address || "Retirada no balcão")}</p>
-            <label style="font-size:13px;color:#999; font-weight: 600;">STATUS DO PEDIDO<br>
-              <select data-order-status="${o.id}" style="font-size: 16px; padding: 5px; margin-top: 5px;">
-                ${["Pedido recebido", "Pagamento aprovado", "Preparando pedido", "Saiu para entrega", "Pedido entregue"].map((st, i) => `<option value="${i}" ${i === o.status ? "selected" : ""}>${st}</option>`).join("")}
-              </select>
-            </label>
+            <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+              <label style="font-size:13px;color:#999; font-weight: 600; flex: 1; min-width: 200px;">STATUS DO PEDIDO<br>
+                <select data-order-status="${o.id}" style="font-size: 16px; padding: 5px; margin-top: 5px; width: 100%;">
+                  ${["Pedido recebido", "Pagamento aprovado", "Preparando pedido", "Saiu para entrega", "Pedido entregue"].map((st, i) => `<option value="${i}" ${i === o.status ? "selected" : ""}>${st}</option>`).join("")}
+                </select>
+              </label>
+              ${o.payment === "pix" && o.status === 0 ? `
+                <button type="button" data-approve-pix="${o.id}" class="button" style="background:#22c55e; color:#111; font-weight:800; font-size:12px; padding:8px 14px; border:none; cursor:pointer; border-radius:4px; height: 38px; white-space: nowrap;">
+                  ✓ CONFIRMAR PIX
+                </button>
+              ` : ""}
+            </div>
           </article>`).join("")
       : `<p class="muted">Nenhum pedido encontrado para esta data.</p>`;
 
@@ -804,6 +1177,21 @@
       const newStatus = Number(sel.value);
       const { error } = await supabaseClient.from('orders').update({ status: newStatus }).eq('id', orderId);
       if (error) toast("Erro ao atualizar status."); else toast("Status atualizado!");
+    });
+
+    $("adminOrders").querySelectorAll("[data-approve-pix]").forEach(btn => btn.onclick = async () => {
+      const orderId = btn.dataset.approvePix;
+      btn.disabled = true;
+      btn.textContent = "Confirmando...";
+      const { error } = await supabaseClient.from('orders').update({ status: 1 }).eq('id', orderId);
+      if (error) {
+        toast("Erro ao confirmar pagamento.");
+        btn.disabled = false;
+        btn.textContent = "✓ CONFIRMAR PIX";
+      } else {
+        toast(`Pagamento do Pedido #${orderId} aprovado!`);
+        await loadOrders();
+      }
     });
   };
 
@@ -1286,20 +1674,63 @@
     if (!el) return;
     el.innerHTML = `
       <form class="admin-form" id="deliveryForm">
-        <h3 style="font:600 24px var(--display)">CONFIGURAÇÕES DE ENTREGA</h3>
-        <label>Taxa de entrega padrão (R$)
-          <input name="fee" id="deliveryFeeInput" type="number" step="0.50" min="0" value="${deliveryFee}" required style="font-size: 16px;">
-        </label>
-        <button class="button button-primary" style="margin-top: 15px; font-size: 16px;">SALVAR TAXA</button>
+        <h3 style="font:600 24px var(--display)">CONFIGURAÇÕES DE ENTREGA & PIX</h3>
+        
+        <div style="background:#1b1b1b; padding:15px; border-radius:8px; border:1px solid #333; margin-bottom:15px;">
+          <h4 style="color:var(--yellow); font-size:16px; margin:0 0 10px;">🛵 Taxa de Entrega</h4>
+          <label>Taxa de entrega padrão (R$)
+            <input name="fee" id="deliveryFeeInput" type="number" step="0.50" min="0" value="${deliveryFee}" required style="font-size: 16px;">
+          </label>
+        </div>
+
+        <div style="background:#1b1b1b; padding:15px; border-radius:8px; border:1px solid #333; margin-bottom:15px;">
+          <h4 style="color:var(--yellow); font-size:16px; margin:0 0 10px;">◈ Dados para Recebimento Pix</h4>
+          <p style="font-size:12px; color:#aaa; margin:0 0 12px;">Esses dados são usados para gerar o QR Code dinâmico e o código Pix Copia e Cola aos clientes.</p>
+          
+          <label style="margin-bottom:10px;">Chave Pix (CPF/CNPJ, E-mail, Telefone ou Chave Aleatória)
+            <input name="pixKey" id="pixKeyInput" type="text" value="${escapeHtml(pixSettings.key)}" required placeholder="ex: 07748236151" style="font-size: 15px;">
+          </label>
+
+          <label style="margin-bottom:10px;">Nome do Titular / Beneficiário (máx. 25 letras, sem acentos)
+            <input name="pixName" id="pixNameInput" type="text" maxlength="25" value="${escapeHtml(pixSettings.name)}" required placeholder="ex: SIMPSON BURGUER" style="font-size: 15px;">
+          </label>
+
+          <label>Cidade do Titular (máx. 15 letras, sem acentos)
+            <input name="pixCity" id="pixCityInput" type="text" maxlength="15" value="${escapeHtml(pixSettings.city)}" required placeholder="ex: SAO PAULO" style="font-size: 15px;">
+          </label>
+        </div>
+
+        <button class="button button-primary" style="margin-top: 10px; font-size: 16px;">SALVAR CONFIGURAÇÕES</button>
       </form>
     `;
     $("deliveryForm").onsubmit = async (e) => {
       e.preventDefault();
-      const val = parseFloat($("deliveryFeeInput").value) || 0;
-      deliveryFee = val;
-      const { error } = await supabaseClient.from('settings').upsert({ key: 'delivery_fee', value: String(val) }, { onConflict: 'key' });
-      if (error) toast("Erro ao salvar taxa.");
-      else toast("Taxa de entrega atualizada!");
+      const valFee = parseFloat($("deliveryFeeInput").value) || 0;
+      const keyVal = $("pixKeyInput").value.trim();
+      const nameVal = $("pixNameInput").value.trim().toUpperCase();
+      const cityVal = $("pixCityInput").value.trim().toUpperCase();
+
+      deliveryFee = valFee;
+      pixSettings = {
+        key: keyVal,
+        name: nameVal,
+        city: cityVal
+      };
+
+      localStorage.setItem("sb_delivery_fee", String(valFee));
+      localStorage.setItem("sb_pix_settings", JSON.stringify(pixSettings));
+
+      try {
+        await Promise.all([
+          supabaseClient.from('settings').upsert({ key: 'delivery_fee', value: String(valFee) }, { onConflict: 'key' }),
+          supabaseClient.from('settings').upsert({ key: 'pix_key', value: keyVal }, { onConflict: 'key' }),
+          supabaseClient.from('settings').upsert({ key: 'pix_name', value: nameVal }, { onConflict: 'key' }),
+          supabaseClient.from('settings').upsert({ key: 'pix_city', value: cityVal }, { onConflict: 'key' })
+        ]);
+        toast("Configurações salvas com sucesso!");
+      } catch (err) {
+        toast("Salvo localmente com sucesso!");
+      }
       refreshAdminStats();
     };
   };
@@ -1342,16 +1773,53 @@
 
   $("fulfillment").onchange = updateCheckoutTotals;
 
+  const customerCepInput = $("customerCep");
+  if (customerCepInput) {
+    customerCepInput.addEventListener("input", async (e) => {
+      let val = e.target.value.replace(/\D/g, "");
+      if (val.length > 5) val = val.substring(0, 5) + "-" + val.substring(5, 8);
+      e.target.value = val;
+      const raw = val.replace(/\D/g, "");
+      if (raw.length === 8) {
+        try {
+          const res = await fetch(`https://viacep.com.br/ws/${raw}/json/`);
+          const data = await res.json();
+          if (!data.erro) {
+            if (data.logradouro) $("customerStreet").value = data.logradouro;
+            if (data.bairro) $("customerNeighborhood").value = data.bairro;
+            $("customerNumber").focus();
+          }
+        } catch (_) {}
+      }
+    });
+  }
+
   $("checkoutForm").onsubmit = async e => {
     e.preventDefault();
     if (!cart.length) return;
     const fulfillment = $("fulfillment").value;
-    const address = fulfillment === "pickup"
-      ? "Retirada no balcão"
-      : `${$("customerStreet").value}, ${$("customerNumber").value} - ${$("customerNeighborhood").value} · CEP ${$("customerCep").value}${$("customerComplement").value ? " · " + $("customerComplement").value : ""}`;
+
+    let address = "Retirada no balcão";
+    if (fulfillment === "delivery") {
+      const street = ($("customerStreet").value || "").trim();
+      const number = ($("customerNumber").value || "").trim();
+      const neighborhood = ($("customerNeighborhood").value || "").trim();
+      const cep = ($("customerCep").value || "").trim();
+      const complement = ($("customerComplement").value || "").trim();
+
+      if (!street || !number || !neighborhood) {
+        toast("Por favor, informe o endereço completo (Rua, Número e Bairro)!");
+        if (!street) $("customerStreet").focus();
+        else if (!number) $("customerNumber").focus();
+        else $("customerNeighborhood").focus();
+        return;
+      }
+
+      address = `${street}, ${number} - ${neighborhood}${cep ? ` · CEP ${cep}` : ""}${complement ? ` · ${complement}` : ""}`;
+    }
+
     const payment = document.querySelector('input[name="payment"]:checked').value;
     const orderTotal = cartSubtotal() + (fulfillment === "delivery" ? deliveryFee : 0);
-    const deliveryCode = fulfillment === "delivery" ? String(Math.floor(100000 + Math.random() * 900000)) : null;
 
     await checkSession();
 
@@ -1364,7 +1832,7 @@
       subtotal: cartSubtotal(),
       fee: fulfillment === "delivery" ? deliveryFee : 0,
       total: orderTotal,
-      delivery_code: deliveryCode,
+      delivery_code: null,
       status: 0,
       user_id: currentUser ? currentUser.id : null
     }]).select().single();
@@ -1389,19 +1857,28 @@
     saveLocalOrderId(order.id);
     latestPlacedOrder = order;
 
-    toast("Pedido realizado com sucesso!");
-    $("successOrderNumber").textContent = "#" + order.id;
-    $("successOrderTotal").textContent = money(order.total);
-    $("successDeliveryCode").textContent = order.delivery_code || "RETIRADA";
-    $("successDeliveryCode").parentElement.classList.toggle("hidden", fulfillment !== "delivery");
-
     cart = [];
     updateCartCount();
     e.target.reset();
 
-    // Fecha sacola e modal de checkout antes de abrir o modal de sucesso
+    // Fecha sacola e modal de checkout antes de abrir o modal de pagamento/sucesso
     closeLayers();
-    $("successModal").classList.remove("hidden");
+
+    if (payment === "pix") {
+      toast("Pedido registrado! Gerando Pix...");
+      openPixPaymentModal(order);
+    } else {
+      toast("Pedido realizado com sucesso!");
+      $("successOrderNumber").textContent = "#" + order.id;
+      $("successOrderTotal").textContent = money(order.total);
+      const noteEl = $("successPaymentNote");
+      if (noteEl) {
+        noteEl.textContent = fulfillment === "delivery"
+          ? "Pagamento na entrega: tenha o valor ou cartão em mãos quando o entregador chegar."
+          : "Seu pedido será preparado para retirada no balcão.";
+      }
+      $("successModal").classList.remove("hidden");
+    }
   };
 
   $("successTrack").onclick = () => {

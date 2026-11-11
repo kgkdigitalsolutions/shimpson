@@ -6,9 +6,15 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "pix:listener": "node pix-email-listener.js"
   },
   "devDependencies": {
     "vite": "^6.4.1"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.10",
+    "imapflow": "^2.11.0",
+    "mailparser": "^3.14.3"
   }
 }

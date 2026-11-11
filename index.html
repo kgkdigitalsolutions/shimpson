@@ -149,7 +149,7 @@
       <div class="admin-tabs">
         <button class="active" data-admin-tab="orders">Pedidos</button>
         <button data-admin-tab="products">Produtos</button>
-        <button data-admin-tab="delivery">Entrega</button>
+        <button data-admin-tab="delivery">Entrega & Pix</button>
       </div>
       <div id="adminOrders" class="admin-panel">
         <div class="admin-filter-bar" style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px; background: #222; padding: 10px; border-radius: 8px; border: 1px solid #333;">
@@ -179,11 +179,64 @@
       <span class="eyebrow">SÓ MAIS UM PASSO</span><h2>FINALIZAR <em>PEDIDO.</em></h2>
       <form id="checkoutForm">
         <div class="form-section"><h3>01 / Seus dados</h3><div class="form-grid"><label class="span-2">Nome completo<input id="customerName" required autocomplete="name"></label><label>Telefone / WhatsApp<input id="customerPhone" required type="tel" autocomplete="tel" placeholder="(00) 00000-0000"></label><label>Como vai receber?<select id="fulfillment"><option value="delivery">Entrega em casa</option><option value="pickup">Retirada no balcão</option></select></label></div></div>
-        <div class="form-section" id="addressSection"><h3>02 / Endereço de entrega</h3><div class="form-grid"><label>CEP<input id="customerCep" placeholder="00000-000"></label><label>Rua / Avenida<input id="customerStreet"></label><label>Número<input id="customerNumber"></label><label>Bairro<input id="customerNeighborhood"></label><label class="span-2">Complemento / referência<input id="customerComplement"></label></div></div>
-        <div class="form-section"><h3>03 / Pagamento</h3><div class="payment-options"><label><input type="radio" name="payment" value="pix" checked><span>◈ <b>Pix</b><small>Pagamento instantâneo</small></span></label><label><input type="radio" name="payment" value="card"><span>▣ <b>Cartão</b><small>Crédito ou débito</small></span></label><label><input type="radio" name="payment" value="cash"><span>R$ <b>Na entrega</b><small>Dinheiro / maquininha</small></span></label></div><p class="notice">Nesta versão de teste, o pagamento é apenas demonstrativo. Nenhuma cobrança real será feita.</p></div>
+        <div class="form-section" id="addressSection"><h3>02 / Endereço de entrega</h3><div class="form-grid"><label>CEP<input id="customerCep" placeholder="00000-000" maxlength="9"></label><label>Rua / Avenida *<input id="customerStreet" required placeholder="ex: Rua das Flores"></label><label>Número *<input id="customerNumber" required placeholder="ex: 123"></label><label>Bairro *<input id="customerNeighborhood" required placeholder="ex: Centro"></label><label class="span-2">Complemento / referência <small style="color:#888; font-weight:normal;">(opcional)</small><input id="customerComplement" placeholder="ex: Apto 42, Bloco B"></label></div></div>
+        <div class="form-section"><h3>03 / Pagamento</h3><div class="payment-options"><label><input type="radio" name="payment" value="pix" checked><span>◈ <b>Pix</b><small>QR Code e Copia e Cola imediato</small></span></label><label><input type="radio" name="payment" value="cash"><span>💵 <b>Na entrega</b><small>Dinheiro ou maquininha com entregador</small></span></label></div></div>
         <div class="checkout-total"><div><span>Produtos</span><b id="checkoutSubtotal">R$ 0,00</b></div><div><span>Entrega</span><b id="checkoutFee">R$ 0,00</b></div><div class="grand-total"><span>Total</span><b id="checkoutTotal">R$ 0,00</b></div></div>
         <button class="button button-primary full" type="submit">CONFIRMAR PEDIDO <span>→</span></button>
       </form>
+    </div>
+  </div>
+  <div class="modal hidden" id="pixModal">
+    <div class="modal-card" style="max-width: 480px; text-align: center;">
+      <button class="close-button modal-close" data-close>×</button>
+      <span class="eyebrow">PAGAMENTO INSTANTÂNEO</span>
+      <h2 style="font: 600 28px var(--display); margin: 6px 0 2px;">PAGUE COM <em>PIX</em></h2>
+      <p style="color: #aaa; font-size: 13px; margin-bottom: 15px;">Pedido <b id="pixOrderNumber" style="color:#fff;">#0</b> registrado! Realize o pagamento para iniciar o preparo.</p>
+
+      <div style="background: #111; padding: 15px; border-radius: 8px; border: 1px solid #333; margin-bottom: 15px;">
+        <small style="color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; display: block;">Valor a pagar</small>
+        <b id="pixOrderTotal" style="font: 700 32px var(--display); color: var(--yellow); display: block; margin: 4px 0;">R$ 0,00</b>
+        <div id="pixStatusIndicator" style="display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--yellow); background: #26210f; border: 1px solid #665219; padding: 4px 12px; border-radius: 20px; margin-top: 6px;">
+          <span class="pulse-dot"></span>
+          <span id="pixStatusText">Aguardando pagamento...</span>
+        </div>
+      </div>
+
+      <!-- QR Code -->
+      <div id="pixQrContainer" style="background: #fff; padding: 12px; border-radius: 8px; width: fit-content; margin: 0 auto 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+        <div id="pixQrCode" style="display:flex; justify-content:center; align-items:center; min-width:200px; min-height:200px;"></div>
+        <img id="pixQrImage" src="" alt="QR Code Pix" style="width: 200px; height: 200px; display: none;">
+      </div>
+
+      <!-- Copia e Cola -->
+      <div id="pixCopiaColaContainer" style="text-align: left; margin-bottom: 15px;">
+        <label style="font-size: 11px; font-weight: 700; color: #bbb; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 5px;">
+          Código Pix Copia e Cola:
+        </label>
+        <div style="display: flex; gap: 6px;">
+          <input type="text" id="pixCopiaColaInput" readonly style="flex: 1; font-size: 11px; font-family: monospace; padding: 10px; background: #111; border: 1px solid #444; color: #fff; border-radius: 4px; margin: 0;">
+          <button type="button" id="btnCopiarPix" class="button button-primary" style="min-height: 40px; padding: 0 16px; font-size: 12px; white-space: nowrap;">
+            COPIAR
+          </button>
+        </div>
+      </div>
+
+      <!-- Instruções -->
+      <div id="pixInstructions" style="background: #181818; padding: 12px; border-radius: 6px; font-size: 12px; color: #888; text-align: left; line-height: 1.5; margin-bottom: 15px;">
+        <b style="color: #ddd; display: block; margin-bottom: 4px;">Como pagar:</b>
+        1. Abra o app do seu banco ou carteira digital.<br>
+        2. Escolha pagar via <b>Pix Copia e Cola</b> ou aponte a câmera para o QR Code.<br>
+        3. Confirme as informações e conclua a transferência.<br>
+        <span style="color: var(--yellow); font-size: 11px; margin-top: 4px; display: block;">
+          ⚡ Assim que o pagamento for detectado, seu pedido será aprovado automaticamente!
+        </span>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <button type="button" class="button button-outline full" id="btnPixGoTracking" style="font-size: 12px;">
+          ACOMPANHAR PEDIDO ⌁
+        </button>
+      </div>
     </div>
   </div>
   <div class="modal hidden" id="successModal">
@@ -195,16 +248,15 @@
       <p>Seu pedido foi salvo com sucesso!</p>
       <div class="order-number">PEDIDO <b id="successOrderNumber">#1001</b></div>
       <p id="successOrderTotal" class="success-total"></p>
-      <div class="delivery-code-box">
-        <small>SEU CÓDIGO DE CONFIRMAÇÃO DA ENTREGA</small>
-        <b id="successDeliveryCode">000000</b>
-        <p>Informe este código ao entregador somente quando receber seu pedido. Ele será necessário para confirmar a entrega.</p>
-      </div>
+      <p id="successPaymentNote" style="color: #aaa; font-size: 14px; margin: 15px 0 22px; line-height: 1.5;">
+        Pagamento na entrega: tenha o valor ou cartão em mãos quando o entregador chegar.
+      </p>
       <button class="button button-primary full" id="successTrack">ACOMPANHAR PEDIDO</button>
       <button class="button button-outline full" id="successMyOrders" style="margin-top: 10px;">VER MEUS PEDIDOS</button>
     </div>
   </div>
   <div class="toast" id="toast"></div>
+  <script src="/qrcode.min.js"></script>
   <script type="module" src="/app.js"></script>
 </body>
 </html>
