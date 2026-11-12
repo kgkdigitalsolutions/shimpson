@@ -12,6 +12,15 @@
 
   let products = [];
   let orders = [];
+  let lastKnownOrderIds = new Set();
+  const orderItemsCache = new Map();
+  let lastRenderedSignature = "";
+
+  const getOrdersSignature = (list) => {
+    if (!list || !list.length) return "";
+    return list.map(o => `${o.id}:${o.status}:${o.total}`).join("|");
+  };
+
   let cart = [];
   let category = "todos";
   let selectedProduct = null;
@@ -419,7 +428,8 @@
 
     if (!error && data) {
       orders = data;
-      if (adminAuthenticated) renderOrdersList();
+      lastKnownOrderIds = new Set(data.map(o => o.id));
+      if (adminAuthenticated) await renderOrdersList();
     }
   };
 
@@ -1191,66 +1201,118 @@
     });
   };
 
+  const formatOrderItemsCardHTML = (items) => {
+    if (!items || !items.length) {
+      return `<span style="color:#777; font-size:13px;">Sem itens detalhados</span>`;
+    }
+    return items.map(i => `
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; border-bottom: 1px solid #2d2d2d; padding-bottom: 6px;">
+        <div style="flex: 1;">
+          <div style="font-size: 15px; font-weight: 700; color: #fff;">
+            <span style="color: var(--yellow);">${i.quantity}x</span> ${escapeHtml(i.name)}
+          </div>
+          ${formatOrderExtrasHTML(i.extras)}
+        </div>
+        <span style="font-weight: 700; font-size: 14px; color: var(--yellow); margin-left: 12px;">
+          ${money(i.unit_price * i.quantity)}
+        </span>
+      </div>
+    `).join("");
+  };
+
   const renderOrdersList = async () => {
     const container = $("ordersContainer");
     if (!container) return;
-    container.innerHTML = orders.length
-      ? orders.map(o => `
-          <article class="admin-order">
-            <div class="admin-order-head">
-              <div>
-                <b style="font-size: 18px;">Pedido #${o.id} · ${escapeHtml(o.customer_name)}</b>
-                <p style="font-size: 14px;">${new Date(o.created_at).toLocaleString("pt-BR")} · ${o.fulfillment === "pickup" ? "Retirada" : "Delivery"} · ${escapeHtml(o.payment.toUpperCase())}
-                  ${o.payment === "pix" && o.status === 0 ? '<span style="background:#594406; color:var(--yellow); padding:2px 8px; border-radius:4px; font-size:11px; font-weight:800; margin-left:6px; border:1px solid #a67f0c;">PIX AGUARDANDO</span>' : ""}
-                  ${o.payment === "pix" && o.status >= 1 ? '<span style="background:#0f381c; color:#4ade80; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:800; margin-left:6px; border:1px solid #1f7a3f;">PIX PAGO ✓</span>' : ""}
-                  ${o.payment !== "pix" && o.status < 3 ? '<span style="background:#1b2430; color:#60a5fa; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:800; margin-left:6px; border:1px solid #2563eb;">PAGAR NA ENTREGA</span>' : ""}
-                  ${o.payment !== "pix" && o.status >= 3 ? '<span style="background:#0f381c; color:#4ade80; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:800; margin-left:6px; border:1px solid #1f7a3f;">PAGO NA ENTREGA ✓</span>' : ""}
-                </p>
-              </div>
-              <b style="color:var(--yellow); font-size: 20px;">${money(o.total)}</b>
-            </div>
-            <div id="items-${o.id}" style="background: #1a1a1a; padding: 12px; border-radius: 6px; margin: 10px 0; border-left: 4px solid var(--yellow); font-size: 15px; line-height: 1.6;">Carregando itens...</div>
-            <p style="font-size: 15px;">📞 ${escapeHtml(o.customer_phone)} · 📍 ${escapeHtml(o.address || "Retirada no balcão")}</p>
-            <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
-              <label style="font-size:13px;color:#999; font-weight: 600; flex: 1; min-width: 200px;">STATUS DO PEDIDO<br>
-                <select data-order-status="${o.id}" style="font-size: 16px; padding: 5px; margin-top: 5px; width: 100%;">
-                  ${getOrderSteps(o).map((st, i) => `<option value="${i}" ${i === o.status ? "selected" : ""}>${st}</option>`).join("")}
-                </select>
-              </label>
-              ${o.payment === "pix" && o.status === 0 ? `
-                <button type="button" data-approve-pix="${o.id}" class="button" style="background:#22c55e; color:#111; font-weight:800; font-size:12px; padding:8px 14px; border:none; cursor:pointer; border-radius:4px; height: 38px; white-space: nowrap;">
-                  ✓ CONFIRMAR PIX
-                </button>
-              ` : ""}
-              ${o.payment !== "pix" && o.status === 3 ? `
-                <button type="button" data-confirm-cash="${o.id}" class="button" style="background:#22c55e; color:#111; font-weight:800; font-size:12px; padding:8px 14px; border:none; cursor:pointer; border-radius:4px; height: 38px; white-space: nowrap;">
-                  ✓ CONFIRMAR RECEBIMENTO
-                </button>
-              ` : ""}
-            </div>
-          </article>`).join("")
-      : `<p class="muted">Nenhum pedido encontrado para esta data.</p>`;
 
-    for (const o of orders) {
-      const { data: items } = await supabaseClient.from('order_items').select('*').eq('order_id', o.id);
-      const itemsHTML = items && items.length
-        ? items.map(i => `
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; border-bottom: 1px solid #2d2d2d; padding-bottom: 6px;">
-              <div style="flex: 1;">
-                <div style="font-size: 15px; font-weight: 700; color: #fff;">
-                  <span style="color: var(--yellow);">${i.quantity}x</span> ${escapeHtml(i.name)}
-                </div>
-                ${formatOrderExtrasHTML(i.extras)}
-              </div>
-              <span style="font-weight: 700; font-size: 14px; color: var(--yellow); margin-left: 12px;">
-                ${money(i.unit_price * i.quantity)}
-              </span>
-            </div>
-          `).join("")
-        : "Sem itens";
-      const el = $(`items-${o.id}`);
-      if (el) el.innerHTML = itemsHTML;
+    if (!orders.length) {
+      lastRenderedSignature = "";
+      container.innerHTML = `<p class="muted">Nenhum pedido encontrado para esta data.</p>`;
+      return;
     }
+
+    // 1. Busca os itens APENAS dos pedidos que ainda não estão em cache (em lote)
+    const uncachedOrders = orders.filter(o => !orderItemsCache.has(o.id));
+    if (uncachedOrders.length > 0) {
+      const uncachedIds = uncachedOrders.map(o => o.id);
+      try {
+        let { data: allItems } = await supabaseClient
+          .from('order_items')
+          .select('*')
+          .in('order_id', uncachedIds);
+
+        // Se algum pedido novo ainda não teve seus itens persistidos (latência entre orders e order_items)
+        const foundOrderIds = new Set((allItems || []).map(i => i.order_id));
+        const missingOrders = uncachedOrders.filter(o => !foundOrderIds.has(o.id));
+        if (missingOrders.length > 0) {
+          await new Promise(r => setTimeout(r, 350));
+          const { data: retryItems } = await supabaseClient
+            .from('order_items')
+            .select('*')
+            .in('order_id', missingOrders.map(o => o.id));
+          if (retryItems && retryItems.length) {
+            allItems = (allItems || []).concat(retryItems);
+          }
+        }
+
+        const itemsByOrderId = {};
+        if (allItems) {
+          for (const item of allItems) {
+            if (!itemsByOrderId[item.order_id]) itemsByOrderId[item.order_id] = [];
+            itemsByOrderId[item.order_id].push(item);
+          }
+        }
+
+        for (const o of uncachedOrders) {
+          const items = itemsByOrderId[o.id] || [];
+          if (items.length > 0) {
+            orderItemsCache.set(o.id, formatOrderItemsCardHTML(items));
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao buscar itens dos pedidos:", err);
+      }
+    }
+
+    // 2. Renderiza o HTML com os itens JÁ PRONTOS e embutidos diretamente (zero flash / zero "Carregando itens...")
+    lastRenderedSignature = getOrdersSignature(orders);
+    container.innerHTML = orders.map(o => `
+      <article class="admin-order">
+        <div class="admin-order-head">
+          <div>
+            <b style="font-size: 18px;">Pedido #${o.id} · ${escapeHtml(o.customer_name)}</b>
+            <p style="font-size: 14px;">${new Date(o.created_at).toLocaleString("pt-BR")} · ${o.fulfillment === "pickup" ? "Retirada" : "Delivery"} · ${escapeHtml(o.payment.toUpperCase())}
+              ${o.payment === "pix" && o.status === 0 ? '<span style="background:#594406; color:var(--yellow); padding:2px 8px; border-radius:4px; font-size:11px; font-weight:800; margin-left:6px; border:1px solid #a67f0c;">PIX AGUARDANDO</span>' : ""}
+              ${o.payment === "pix" && o.status >= 1 ? '<span style="background:#0f381c; color:#4ade80; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:800; margin-left:6px; border:1px solid #1f7a3f;">PIX PAGO ✓</span>' : ""}
+              ${o.payment !== "pix" && o.status < 3 ? '<span style="background:#1b2430; color:#60a5fa; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:800; margin-left:6px; border:1px solid #2563eb;">PAGAR NA ENTREGA</span>' : ""}
+              ${o.payment !== "pix" && o.status >= 3 ? '<span style="background:#0f381c; color:#4ade80; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:800; margin-left:6px; border:1px solid #1f7a3f;">PAGO NA ENTREGA ✓</span>' : ""}
+            </p>
+          </div>
+          <b style="color:var(--yellow); font-size: 20px;">${money(o.total)}</b>
+        </div>
+        <div id="items-${o.id}" style="background: #1a1a1a; padding: 12px; border-radius: 6px; margin: 10px 0; border-left: 4px solid var(--yellow); font-size: 15px; line-height: 1.6;">
+          ${orderItemsCache.get(o.id) || `<span style="color:#777; font-size:13px;">Carregando itens...</span>`}
+        </div>
+        <p style="font-size: 15px;">📞 ${escapeHtml(o.customer_phone)} · 📍 ${escapeHtml(o.address || "Retirada no balcão")}</p>
+        <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+          <label style="font-size:13px;color:#999; font-weight: 600; flex: 1; min-width: 200px;">STATUS DO PEDIDO<br>
+            <select data-order-status="${o.id}" style="font-size: 16px; padding: 5px; margin-top: 5px; width: 100%;">
+              ${getOrderSteps(o).map((st, i) => `<option value="${i}" ${i === o.status ? "selected" : ""}>${st}</option>`).join("")}
+            </select>
+          </label>
+          ${o.payment === "pix" && o.status === 0 ? `
+            <button type="button" data-approve-pix="${o.id}" class="button" style="background:#22c55e; color:#111; font-weight:800; font-size:12px; padding:8px 14px; border:none; cursor:pointer; border-radius:4px; height: 38px; white-space: nowrap;">
+              ✓ CONFIRMAR PIX
+            </button>
+          ` : ""}
+          ${o.payment !== "pix" && o.status === 3 ? `
+            <button type="button" data-confirm-cash="${o.id}" class="button" style="background:#22c55e; color:#111; font-weight:800; font-size:12px; padding:8px 14px; border:none; cursor:pointer; border-radius:4px; height: 38px; white-space: nowrap;">
+              ✓ CONFIRMAR RECEBIMENTO
+            </button>
+          ` : ""}
+        </div>
+      </article>
+    `).join("");
+
     setupOrderEvents();
   };
 
@@ -1304,7 +1366,6 @@
 
   let adminOrdersChannel = null;
   let adminPollTimer = null;
-  let lastKnownOrderIds = new Set();
 
   const playNewOrderSound = () => {
     try {
@@ -1333,7 +1394,7 @@
 
     lastKnownOrderIds = new Set(orders.map(o => o.id));
 
-    // 1. Supabase Realtime
+    // 1. Supabase Realtime (pedidos e itens de pedidos)
     try {
       adminOrdersChannel = supabaseClient
         .channel('admin_orders_channel')
@@ -1344,6 +1405,24 @@
           }
           await loadOrders();
           refreshAdminStats();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, async (payload) => {
+          const orderId = payload.new ? payload.new.order_id : (payload.old ? payload.old.order_id : null);
+          if (orderId) {
+            orderItemsCache.delete(orderId);
+            const itemsEl = $(`items-${orderId}`);
+            if (itemsEl) {
+              const { data: items } = await supabaseClient
+                .from('order_items')
+                .select('*')
+                .eq('order_id', orderId);
+              if (items && items.length) {
+                const html = formatOrderItemsCardHTML(items);
+                orderItemsCache.set(orderId, html);
+                itemsEl.innerHTML = html;
+              }
+            }
+          }
         })
         .subscribe();
     } catch (e) {
@@ -1362,15 +1441,19 @@
           .order('created_at', { ascending: false });
 
         if (!error && data) {
-          const newOrders = data.filter(o => !lastKnownOrderIds.has(o.id));
-          if (newOrders.length > 0) {
-            playNewOrderSound();
-            toast(`🔔 ${newOrders.length} novo(s) pedido(s) recebido(s)!`);
+          const currentSignature = getOrdersSignature(data);
+          // Só atualiza e re-renderiza a tela se houver real alteração (novo pedido ou mudança de status)
+          if (currentSignature !== lastRenderedSignature) {
+            const newOrders = data.filter(o => !lastKnownOrderIds.has(o.id));
+            if (newOrders.length > 0 && lastKnownOrderIds.size > 0) {
+              playNewOrderSound();
+              toast(`🔔 ${newOrders.length} novo(s) pedido(s) recebido(s)!`);
+            }
+            orders = data;
+            lastKnownOrderIds = new Set(data.map(o => o.id));
+            await renderOrdersList();
+            refreshAdminStats();
           }
-          orders = data;
-          lastKnownOrderIds = new Set(data.map(o => o.id));
-          renderOrdersList();
-          refreshAdminStats();
         }
       } catch (err) {
         console.warn("Admin poll error:", err);
@@ -2305,7 +2388,7 @@
   }
 
   // --- Admin Events ---
-  const activateAdminSession = () => {
+  const activateAdminSession = async () => {
     adminAuthenticated = true;
     try { localStorage.setItem("sb_admin_logged", "true"); } catch (_) {}
     $("adminLogin").classList.add("hidden");
@@ -2313,7 +2396,8 @@
     $("logoutButton").classList.remove("hidden");
     if ($("adminOrderDate")) $("adminOrderDate").value = adminFilterDate;
     refreshAdminStats();
-    renderOrdersList();
+    lastRenderedSignature = "";
+    await renderOrdersList();
     renderAdminProducts();
     renderDeliverySettings();
     renderSecuritySettings();
@@ -2360,7 +2444,7 @@
     }
 
     if (authenticated) {
-      activateAdminSession();
+      await activateAdminSession();
     } else {
       $("loginError").textContent = "E-mail ou senha de administrador incorretos!";
     }
@@ -2396,6 +2480,7 @@
   $("filterOrdersBtn").onclick = async () => {
     adminFilterDate = $("adminOrderDate").value;
     if (!adminFilterDate) { toast("Selecione uma data!"); return; }
+    lastRenderedSignature = "";
     await loadOrders();
     refreshAdminStats();
   };
@@ -2457,7 +2542,7 @@
     } catch (_) {}
 
     if (wasAdminLogged) {
-      activateAdminSession();
+      await activateAdminSession();
     }
 
     if (savedActivePage && savedActivePage !== "homePage") {
