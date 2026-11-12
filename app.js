@@ -22,11 +22,59 @@
   let adminFilterDate = new Date().toISOString().split('T')[0];
   let currentUser = null;
 
-  let pixSettings = {
-    key: "07748236151",
-    name: "SIMPSON BURGUER",
-    city: "SAO PAULO"
+  let adminCredentials = {
+    email: "admin@simpson.com",
+    password: "admin1234"
   };
+
+  const getAdminCredentials = () => {
+    try {
+      const saved = localStorage.getItem("sb_admin_creds");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.email && parsed.password) {
+          adminCredentials = { ...adminCredentials, ...parsed };
+        }
+      }
+    } catch {}
+    return adminCredentials;
+  };
+
+  const getOrderSteps = (orderOrPayment, fulfillment) => {
+    const payment = (typeof orderOrPayment === "object" && orderOrPayment !== null)
+      ? orderOrPayment.payment
+      : orderOrPayment;
+    const fulf = (typeof orderOrPayment === "object" && orderOrPayment !== null)
+      ? orderOrPayment.fulfillment
+      : fulfillment;
+    const isPickup = fulf === "pickup";
+
+    if (payment === "pix") {
+      return [
+        "Pedido recebido",
+        "Pagamento aprovado",
+        "Preparando pedido",
+        isPickup ? "Pronto para retirada" : "Saiu para entrega",
+        isPickup ? "Pedido retirado" : "Pedido entregue"
+      ];
+    } else {
+      return [
+        "Pedido recebido",
+        "Preparando pedido",
+        isPickup ? "Pronto para retirada" : "Saiu para entrega",
+        isPickup ? "Pagamento no balcão" : "Pagamento na entrega",
+        isPickup ? "Pedido retirado" : "Pedido entregue"
+      ];
+    }
+  };
+
+  const PIX_SETTINGS = Object.freeze({
+    key: "61992749059",
+    name: "FILIPI DE SOUZA MOREIRA",
+    city: "BRASILIA"
+  });
+
+  const pixSettings = PIX_SETTINGS;
 
   class GeradorPix {
     static ID_PAYLOAD_FORMAT_INDICATOR = "00";
@@ -189,6 +237,7 @@
       const el = $(id);
       if (el) el.classList.toggle("hidden", id !== page);
     });
+    try { sessionStorage.setItem("sb_active_page", page); } catch (_) {}
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -335,25 +384,26 @@
 
   const loadSettings = async () => {
     try {
-      const savedPix = localStorage.getItem("sb_pix_settings");
-      if (savedPix) {
-        const parsed = JSON.parse(savedPix);
-        if (parsed.key && parsed.key !== "simpsonburguer@gmail.com") {
-          pixSettings = { ...pixSettings, ...parsed };
-        } else {
-          pixSettings = { ...pixSettings, ...parsed, key: "07748236151" };
-        }
-      }
+      localStorage.removeItem("sb_pix_settings");
       const savedFee = localStorage.getItem("sb_delivery_fee");
       if (savedFee) deliveryFee = parseFloat(savedFee) || 5.00;
+
+      const savedCreds = localStorage.getItem("sb_admin_creds");
+      if (savedCreds) {
+        try {
+          const parsed = JSON.parse(savedCreds);
+          if (parsed.email && parsed.password) {
+            adminCredentials = { ...adminCredentials, ...parsed };
+          }
+        } catch {}
+      }
 
       const { data } = await supabaseClient.from('settings').select('*');
       if (data && data.length) {
         data.forEach(item => {
           if (item.key === 'delivery_fee') deliveryFee = parseFloat(item.value) || 5.00;
-          if (item.key === 'pix_key' && item.value && item.value !== "simpsonburguer@gmail.com") pixSettings.key = item.value;
-          if (item.key === 'pix_name') pixSettings.name = item.value;
-          if (item.key === 'pix_city') pixSettings.city = item.value;
+          if (item.key === 'admin_email' && item.value) adminCredentials.email = item.value;
+          if (item.key === 'admin_password' && item.value) adminCredentials.password = item.value;
         });
       }
     } catch (e) {}
@@ -894,7 +944,7 @@
   const showTracking = async order => {
     currentOrder = order;
     setPage("trackingPage");
-    const steps = ["Pedido recebido", "Pagamento aprovado", "Preparando pedido", "Saiu para entrega", "Pedido entregue"];
+    const steps = getOrderSteps(order);
     $("trackingResult").innerHTML = `
       <div class="tracking-card">
         <span class="eyebrow">PEDIDO #${order.id}</span>
@@ -913,6 +963,32 @@
             <button type="button" id="reopenPixBtn" class="button button-primary full" style="font-size:13px; font-weight:800;">
               ⚡ ABRIR QR CODE & COPIA E COLA DO PIX
             </button>
+          </div>
+        ` : ""}
+
+        ${(order.payment !== "pix" && order.status < 3) ? `
+          <div style="background:#131c26; border:1px solid #1e3a5f; border-radius:8px; padding:15px; margin:16px 0; text-align:center;">
+            <div style="display:inline-flex; align-items:center; gap:8px; color:#60a5fa; font-size:13px; font-weight:800; margin-bottom:6px;">
+              <span>💵</span> ${order.fulfillment === "pickup" ? "PAGAMENTO NO BALCÃO" : "PAGAMENTO NA ENTREGA"}
+            </div>
+            <p style="font-size:12px; color:#ccc; margin:0; line-height:1.4;">
+              ${order.fulfillment === "pickup"
+                ? `O pagamento de <b>${money(order.total)}</b> será realizado no balcão no momento da retirada (dinheiro ou cartão).`
+                : `O pagamento de <b>${money(order.total)}</b> será realizado diretamente ao entregador (dinheiro ou maquininha) na entrega.`}
+            </p>
+          </div>
+        ` : ""}
+
+        ${(order.payment !== "pix" && order.status === 3) ? `
+          <div style="background:#241d08; border:1px solid #735914; border-radius:8px; padding:15px; margin:16px 0; text-align:center;">
+            <div style="display:inline-flex; align-items:center; gap:8px; color:var(--yellow); font-size:13px; font-weight:800; margin-bottom:6px;">
+              <span class="pulse-dot"></span> ${order.fulfillment === "pickup" ? "PAGAMENTO NO BALCÃO" : "PAGAMENTO NA ENTREGA"}
+            </div>
+            <p style="font-size:12px; color:#ccc; margin:0; line-height:1.4;">
+              ${order.fulfillment === "pickup"
+                ? `Seu pedido está pronto! Dirija-se ao balcão e realize o pagamento de <b>${money(order.total)}</b>.`
+                : `O entregador está no local! Realize o pagamento de <b>${money(order.total)}</b> (dinheiro ou maquininha).`}
+            </p>
           </div>
         ` : ""}
 
@@ -1032,8 +1108,7 @@
     if (empty) empty.classList.add("hidden");
     if (list) list.classList.remove("hidden");
 
-    const steps = ["Pedido recebido", "Pagamento aprovado", "Preparando pedido", "Saiu para entrega", "Pedido entregue"];
-    const statusColors = ["#f5c928", "#4ade80", "#60a5fa", "#f97316", "#22c55e"];
+    const statusColors = ["#f5c928", "#60a5fa", "#f59e0b", "#f97316", "#22c55e"];
 
     const cardsHtml = await Promise.all(ordersData.map(async o => {
       const { data: items } = await supabaseClient
@@ -1054,6 +1129,7 @@
             </div>`).join("")
         : `<p style="color:#777; font-size:12px;">Sem itens detalhados</p>`;
 
+      const steps = getOrderSteps(o);
       const statusIndex = typeof o.status === "number" ? o.status : 0;
       const statusText = steps[statusIndex] || "Em andamento";
       const statusColor = statusColors[statusIndex] || "var(--yellow)";
@@ -1127,6 +1203,8 @@
                 <p style="font-size: 14px;">${new Date(o.created_at).toLocaleString("pt-BR")} · ${o.fulfillment === "pickup" ? "Retirada" : "Delivery"} · ${escapeHtml(o.payment.toUpperCase())}
                   ${o.payment === "pix" && o.status === 0 ? '<span style="background:#594406; color:var(--yellow); padding:2px 8px; border-radius:4px; font-size:11px; font-weight:800; margin-left:6px; border:1px solid #a67f0c;">PIX AGUARDANDO</span>' : ""}
                   ${o.payment === "pix" && o.status >= 1 ? '<span style="background:#0f381c; color:#4ade80; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:800; margin-left:6px; border:1px solid #1f7a3f;">PIX PAGO ✓</span>' : ""}
+                  ${o.payment !== "pix" && o.status < 3 ? '<span style="background:#1b2430; color:#60a5fa; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:800; margin-left:6px; border:1px solid #2563eb;">PAGAR NA ENTREGA</span>' : ""}
+                  ${o.payment !== "pix" && o.status >= 3 ? '<span style="background:#0f381c; color:#4ade80; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:800; margin-left:6px; border:1px solid #1f7a3f;">PAGO NA ENTREGA ✓</span>' : ""}
                 </p>
               </div>
               <b style="color:var(--yellow); font-size: 20px;">${money(o.total)}</b>
@@ -1136,12 +1214,17 @@
             <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
               <label style="font-size:13px;color:#999; font-weight: 600; flex: 1; min-width: 200px;">STATUS DO PEDIDO<br>
                 <select data-order-status="${o.id}" style="font-size: 16px; padding: 5px; margin-top: 5px; width: 100%;">
-                  ${["Pedido recebido", "Pagamento aprovado", "Preparando pedido", "Saiu para entrega", "Pedido entregue"].map((st, i) => `<option value="${i}" ${i === o.status ? "selected" : ""}>${st}</option>`).join("")}
+                  ${getOrderSteps(o).map((st, i) => `<option value="${i}" ${i === o.status ? "selected" : ""}>${st}</option>`).join("")}
                 </select>
               </label>
               ${o.payment === "pix" && o.status === 0 ? `
                 <button type="button" data-approve-pix="${o.id}" class="button" style="background:#22c55e; color:#111; font-weight:800; font-size:12px; padding:8px 14px; border:none; cursor:pointer; border-radius:4px; height: 38px; white-space: nowrap;">
                   ✓ CONFIRMAR PIX
+                </button>
+              ` : ""}
+              ${o.payment !== "pix" && o.status === 3 ? `
+                <button type="button" data-confirm-cash="${o.id}" class="button" style="background:#22c55e; color:#111; font-weight:800; font-size:12px; padding:8px 14px; border:none; cursor:pointer; border-radius:4px; height: 38px; white-space: nowrap;">
+                  ✓ CONFIRMAR RECEBIMENTO
                 </button>
               ` : ""}
             </div>
@@ -1193,6 +1276,21 @@
         await loadOrders();
       }
     });
+
+    $("adminOrders").querySelectorAll("[data-confirm-cash]").forEach(btn => btn.onclick = async () => {
+      const orderId = btn.dataset.confirmCash;
+      btn.disabled = true;
+      btn.textContent = "Confirmando...";
+      const { error } = await supabaseClient.from('orders').update({ status: 4 }).eq('id', orderId);
+      if (error) {
+        toast("Erro ao confirmar entrega.");
+        btn.disabled = false;
+        btn.textContent = "✓ CONFIRMAR RECEBIMENTO";
+      } else {
+        toast(`Pedido #${orderId} finalizado com sucesso!`);
+        await loadOrders();
+      }
+    });
   };
 
   const refreshAdminStats = async () => {
@@ -1202,6 +1300,123 @@
       ["Produtos", products.length],
       ["Taxa", money(deliveryFee)]
     ].map(([label, value]) => `<div class="stat-card"><small style="font-size: 14px;">${label}</small><b style="font-size: 22px;">${value}</b></div>`).join("");
+  };
+
+  let adminOrdersChannel = null;
+  let adminPollTimer = null;
+  let lastKnownOrderIds = new Set();
+
+  const playNewOrderSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const audioCtx = new AudioCtx();
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.15); // A5
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.4);
+    } catch (_) {}
+  };
+
+  const startAdminSync = () => {
+    stopAdminSync();
+
+    lastKnownOrderIds = new Set(orders.map(o => o.id));
+
+    // 1. Supabase Realtime
+    try {
+      adminOrdersChannel = supabaseClient
+        .channel('admin_orders_channel')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, async (payload) => {
+          if (payload.eventType === 'INSERT') {
+            playNewOrderSound();
+            toast("🔔 Novo pedido recebido!");
+          }
+          await loadOrders();
+          refreshAdminStats();
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn("Realtime error:", e);
+    }
+
+    // 2. Polling inteligente a cada 4 segundos
+    adminPollTimer = setInterval(async () => {
+      if (!adminAuthenticated) return;
+      try {
+        const { data, error } = await supabaseClient
+          .from('orders')
+          .select('*')
+          .gte('created_at', `${adminFilterDate}T00:00:00Z`)
+          .lte('created_at', `${adminFilterDate}T23:59:59Z`)
+          .order('created_at', { ascending: false });
+
+        if (!error && data) {
+          const newOrders = data.filter(o => !lastKnownOrderIds.has(o.id));
+          if (newOrders.length > 0) {
+            playNewOrderSound();
+            toast(`🔔 ${newOrders.length} novo(s) pedido(s) recebido(s)!`);
+          }
+          orders = data;
+          lastKnownOrderIds = new Set(data.map(o => o.id));
+          renderOrdersList();
+          refreshAdminStats();
+        }
+      } catch (err) {
+        console.warn("Admin poll error:", err);
+      }
+    }, 4000);
+  };
+
+  const stopAdminSync = () => {
+    if (adminOrdersChannel) {
+      try { supabaseClient.removeChannel(adminOrdersChannel); } catch (_) {}
+      adminOrdersChannel = null;
+    }
+    if (adminPollTimer) {
+      clearInterval(adminPollTimer);
+      adminPollTimer = null;
+    }
+  };
+
+  const compressImageFile = (file, maxWidth = 800, maxHeight = 800, quality = 0.82) => {
+    return new Promise((resolve, reject) => {
+      if (!file || !file.type.startsWith("image/")) {
+        return reject(new Error("Arquivo selecionado não é uma imagem válida."));
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   };
 
   const renderAdminProducts = () => {
@@ -1218,7 +1433,14 @@
             <option value="acompanhamentos">Acompanhamento</option>
             <option value="bebidas">Bebida</option>
           </select></label>
-          <label>URL da foto<input name="image" type="url" placeholder="https://..." style="font-size: 16px;"></label>
+          <label style="display:flex; flex-direction:column; gap:4px;">Foto do Produto (dispositivo)
+            <input type="file" id="productImageFileInput" accept="image/*" style="font-size: 13px; padding: 6px; background: #222; border: 1px solid #444; border-radius: 4px; color: #fff; cursor: pointer;">
+            <input type="hidden" name="image" id="productImageInput">
+            <div id="productImagePreviewContainer" style="display:flex; align-items:center; gap:10px; margin-top:4px;">
+              <img id="productImagePreview" src="" alt="Prévia" style="width:48px; height:48px; object-fit:cover; border-radius:6px; border:1px solid #444; display:none;">
+              <small id="productImageStatus" style="color:#aaa; font-size:12px;">Selecione uma foto da sua galeria ou arquivos</small>
+            </div>
+          </label>
         </div>
         <label>Descrição<input name="description" required style="font-size: 16px;"></label>
         <label>Ingredientes<input name="ingredients" style="font-size: 16px;"></label>
@@ -1578,11 +1800,43 @@
       };
     }
 
+    const fileInput = $("productImageFileInput");
+    const hiddenImageInput = $("productImageInput");
+    const previewImg = $("productImagePreview");
+    const statusEl = $("productImageStatus");
+
+    if (fileInput) {
+      fileInput.onchange = async () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+        if (statusEl) statusEl.textContent = "Processando imagem...";
+        try {
+          const compressed = await compressImageFile(file);
+          if (hiddenImageInput) hiddenImageInput.value = compressed;
+          if (previewImg) {
+            previewImg.src = compressed;
+            previewImg.style.display = "block";
+          }
+          if (statusEl) statusEl.textContent = `✓ Foto carregada (${file.name})`;
+        } catch (err) {
+          console.error(err);
+          if (statusEl) statusEl.textContent = "Erro ao carregar imagem";
+        }
+      };
+    }
+
     // Cancelar edição
     $("cancelProductEdit").onclick = () => {
       form.reset();
       form.elements.id.value = "";
       if (form.elements.badgeText) form.elements.badgeText.value = "";
+      if (hiddenImageInput) hiddenImageInput.value = "";
+      if (fileInput) fileInput.value = "";
+      if (previewImg) {
+        previewImg.src = "";
+        previewImg.style.display = "none";
+      }
+      if (statusEl) statusEl.textContent = "Selecione uma foto da sua galeria ou arquivos";
       $("productFormTitle").textContent = "CADASTRAR PRODUTO";
       $("productSubmit").textContent = "SALVAR PRODUTO";
       $("cancelProductEdit").classList.add("hidden");
@@ -1610,13 +1864,15 @@
         active_extras: activeExtras
       });
 
+      const imageVal = (hiddenImageInput && hiddenImageInput.value) || f.get("image")?.trim();
+
       const data = {
         name: f.get("name").trim(),
         price: parseFloat(f.get("price")),
         category: f.get("category"),
         description: f.get("description").trim(),
         ingredients: f.get("ingredients")?.trim() || "",
-        image: f.get("image")?.trim() || image("photo-1568901346375-23c9450c58cd"),
+        image: imageVal || image("photo-1568901346375-23c9450c58cd"),
         badge: badgePayload
       };
 
@@ -1638,7 +1894,19 @@
       form.elements.name.value = p.name;
       form.elements.price.value = p.price;
       form.elements.category.value = p.category;
-      form.elements.image.value = p.image || "";
+      if (hiddenImageInput) hiddenImageInput.value = p.image || "";
+      if (fileInput) fileInput.value = "";
+      if (previewImg) {
+        if (p.image) {
+          previewImg.src = p.image;
+          previewImg.style.display = "block";
+          if (statusEl) statusEl.textContent = "Foto atual do produto (escolha outra para trocar)";
+        } else {
+          previewImg.src = "";
+          previewImg.style.display = "none";
+          if (statusEl) statusEl.textContent = "Selecione uma foto da sua galeria ou arquivos";
+        }
+      }
       form.elements.description.value = p.description || "";
       form.elements.ingredients.value = p.ingredients || "";
 
@@ -1674,7 +1942,7 @@
     if (!el) return;
     el.innerHTML = `
       <form class="admin-form" id="deliveryForm">
-        <h3 style="font:600 24px var(--display)">CONFIGURAÇÕES DE ENTREGA & PIX</h3>
+        <h3 style="font:600 24px var(--display)">CONFIGURAÇÕES DE ENTREGA</h3>
         
         <div style="background:#1b1b1b; padding:15px; border-radius:8px; border:1px solid #333; margin-bottom:15px;">
           <h4 style="color:var(--yellow); font-size:16px; margin:0 0 10px;">🛵 Taxa de Entrega</h4>
@@ -1683,55 +1951,138 @@
           </label>
         </div>
 
-        <div style="background:#1b1b1b; padding:15px; border-radius:8px; border:1px solid #333; margin-bottom:15px;">
-          <h4 style="color:var(--yellow); font-size:16px; margin:0 0 10px;">◈ Dados para Recebimento Pix</h4>
-          <p style="font-size:12px; color:#aaa; margin:0 0 12px;">Esses dados são usados para gerar o QR Code dinâmico e o código Pix Copia e Cola aos clientes.</p>
-          
-          <label style="margin-bottom:10px;">Chave Pix (CPF/CNPJ, E-mail, Telefone ou Chave Aleatória)
-            <input name="pixKey" id="pixKeyInput" type="text" value="${escapeHtml(pixSettings.key)}" required placeholder="ex: 07748236151" style="font-size: 15px;">
-          </label>
-
-          <label style="margin-bottom:10px;">Nome do Titular / Beneficiário (máx. 25 letras, sem acentos)
-            <input name="pixName" id="pixNameInput" type="text" maxlength="25" value="${escapeHtml(pixSettings.name)}" required placeholder="ex: SIMPSON BURGUER" style="font-size: 15px;">
-          </label>
-
-          <label>Cidade do Titular (máx. 15 letras, sem acentos)
-            <input name="pixCity" id="pixCityInput" type="text" maxlength="15" value="${escapeHtml(pixSettings.city)}" required placeholder="ex: SAO PAULO" style="font-size: 15px;">
-          </label>
+        <div style="background:#141414; padding:14px 16px; border-radius:8px; border:1px solid #2a2a2a; margin-bottom:15px; font-size:12px; color:#888;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+            <span style="font-size:16px;">🔒</span>
+            <strong style="color:var(--yellow); font-size:13px;">Chave Pix Fixa e Protegida</strong>
+          </div>
+          <p style="margin:0 0 6px; color:#ccc;">
+            Chave: <strong style="color:#fff;">(61) 99274-9059</strong> • Titular: <strong style="color:#fff;">Filipi de souza moreira</strong>
+          </p>
+          <small style="color:#666; line-height: 1.4; display:block;">
+            Por segurança contra invasões ou alterações indevidas, a chave Pix fica definida diretamente no código do sistema e não pode ser modificada pelo painel administrativo.
+          </small>
         </div>
 
-        <button class="button button-primary" style="margin-top: 10px; font-size: 16px;">SALVAR CONFIGURAÇÕES</button>
+        <button class="button button-primary" style="margin-top: 10px; font-size: 16px;">SALVAR TAXA DE ENTREGA</button>
       </form>
     `;
     $("deliveryForm").onsubmit = async (e) => {
       e.preventDefault();
       const valFee = parseFloat($("deliveryFeeInput").value) || 0;
-      const keyVal = $("pixKeyInput").value.trim();
-      const nameVal = $("pixNameInput").value.trim().toUpperCase();
-      const cityVal = $("pixCityInput").value.trim().toUpperCase();
-
       deliveryFee = valFee;
-      pixSettings = {
-        key: keyVal,
-        name: nameVal,
-        city: cityVal
-      };
-
       localStorage.setItem("sb_delivery_fee", String(valFee));
-      localStorage.setItem("sb_pix_settings", JSON.stringify(pixSettings));
 
       try {
-        await Promise.all([
-          supabaseClient.from('settings').upsert({ key: 'delivery_fee', value: String(valFee) }, { onConflict: 'key' }),
-          supabaseClient.from('settings').upsert({ key: 'pix_key', value: keyVal }, { onConflict: 'key' }),
-          supabaseClient.from('settings').upsert({ key: 'pix_name', value: nameVal }, { onConflict: 'key' }),
-          supabaseClient.from('settings').upsert({ key: 'pix_city', value: cityVal }, { onConflict: 'key' })
-        ]);
-        toast("Configurações salvas com sucesso!");
+        await supabaseClient.from('settings').upsert({ key: 'delivery_fee', value: String(valFee) }, { onConflict: 'key' });
+        toast("Taxa de entrega salva com sucesso!");
       } catch (err) {
         toast("Salvo localmente com sucesso!");
       }
       refreshAdminStats();
+    };
+  };
+
+  const renderSecuritySettings = () => {
+    const el = $("adminSecurity");
+    if (!el) return;
+    const creds = getAdminCredentials();
+    el.innerHTML = `
+      <form class="admin-form" id="securityForm">
+        <h3 style="font:600 24px var(--display)">SEGURANÇA & DADOS DE ACESSO</h3>
+        <p style="font-size:13px; color:#aaa; margin:0 0 16px;">
+          Altere o e-mail e a senha utilizados para entrar no painel de administração da Simpson Burguer.
+        </p>
+
+        <div style="background:#1b1b1b; padding:16px; border-radius:8px; border:1px solid #333; margin-bottom:15px;">
+          <h4 style="color:var(--yellow); font-size:15px; margin:0 0 12px;">👤 Acesso do Administrador</h4>
+          
+          <label style="margin-bottom:12px;">E-mail do Administrador
+            <input name="adminEmail" id="secAdminEmail" type="email" value="${escapeHtml(creds.email)}" required placeholder="Digite o e-mail" style="font-size: 15px;">
+          </label>
+
+          <label style="margin-bottom:12px;">Nova Senha
+            <input name="adminPassword" id="secAdminPassword" type="password" required minlength="6" placeholder="Mínimo de 6 caracteres" style="font-size: 15px;" autocomplete="new-password">
+          </label>
+
+          <label style="margin-bottom:12px;">Confirmar Nova Senha
+            <input name="adminPasswordConfirm" id="secAdminPasswordConfirm" type="password" required minlength="6" placeholder="Repita a nova senha" style="font-size: 15px;" autocomplete="new-password">
+          </label>
+
+          <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#aaa; cursor:pointer; margin-top:8px;">
+            <input type="checkbox" id="showSecPasswords" style="width:auto; cursor:pointer;"> Mostrar senhas digitadas
+          </label>
+        </div>
+
+        <p class="form-error" id="secError" style="margin-bottom: 12px;"></p>
+
+        <button class="button button-primary" id="saveSecBtn" style="font-size: 16px;">SALVAR NOVAS CREDENCIAIS</button>
+      </form>
+    `;
+
+    const showPassCheck = $("showSecPasswords");
+    if (showPassCheck) {
+      showPassCheck.onchange = () => {
+        const type = showPassCheck.checked ? "text" : "password";
+        if ($("secAdminPassword")) $("secAdminPassword").type = type;
+        if ($("secAdminPasswordConfirm")) $("secAdminPasswordConfirm").type = type;
+      };
+    }
+
+    $("securityForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const errEl = $("secError");
+      if (errEl) errEl.textContent = "";
+
+      const newEmail = $("secAdminEmail").value.trim().toLowerCase();
+      const newPassword = $("secAdminPassword").value.trim();
+      const confirmPassword = $("secAdminPasswordConfirm").value.trim();
+
+      if (!newEmail || !newEmail.includes("@")) {
+        if (errEl) errEl.textContent = "Por favor, informe um e-mail válido!";
+        return;
+      }
+      if (newPassword.length < 6) {
+        if (errEl) errEl.textContent = "A senha deve ter pelo menos 6 caracteres!";
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        if (errEl) errEl.textContent = "As senhas não coincidem. Digite novamente!";
+        return;
+      }
+
+      const saveBtn = $("saveSecBtn");
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Salvando...";
+      }
+
+      adminCredentials = { email: newEmail, password: newPassword };
+      localStorage.setItem("sb_admin_creds", JSON.stringify(adminCredentials));
+
+      try {
+        await Promise.all([
+          supabaseClient.from('settings').upsert({ key: 'admin_email', value: newEmail }, { onConflict: 'key' }),
+          supabaseClient.from('settings').upsert({ key: 'admin_password', value: newPassword }, { onConflict: 'key' })
+        ]);
+
+        try {
+          const { data: authData } = await supabaseClient.auth.getUser();
+          if (authData?.user) {
+            await supabaseClient.auth.updateUser({ email: newEmail, password: newPassword });
+          }
+        } catch (_) {}
+
+        toast("Credenciais de administrador alteradas com sucesso!");
+        renderSecuritySettings();
+      } catch (err) {
+        console.error(err);
+        toast("Salvo localmente com sucesso!");
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.textContent = "SALVAR NOVAS CREDENCIAIS";
+        }
+      }
     };
   };
 
@@ -1954,18 +2305,32 @@
   }
 
   // --- Admin Events ---
-  const getAdminCredentials = () => {
-    try {
-      const saved = localStorage.getItem("sb_admin_creds");
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return { email: "admin@simpson.com", password: "admin1234" };
+  const activateAdminSession = () => {
+    adminAuthenticated = true;
+    try { localStorage.setItem("sb_admin_logged", "true"); } catch (_) {}
+    $("adminLogin").classList.add("hidden");
+    $("adminDashboard").classList.remove("hidden");
+    $("logoutButton").classList.remove("hidden");
+    if ($("adminOrderDate")) $("adminOrderDate").value = adminFilterDate;
+    refreshAdminStats();
+    renderOrdersList();
+    renderAdminProducts();
+    renderDeliverySettings();
+    renderSecuritySettings();
+    startAdminSync();
   };
 
   $("adminShortcut").onclick = () => {
     setPage("adminPage");
-    $("adminLogin").classList.remove("hidden");
-    $("adminDashboard").classList.add("hidden");
+    if (adminAuthenticated) {
+      $("adminLogin").classList.add("hidden");
+      $("adminDashboard").classList.remove("hidden");
+      $("logoutButton").classList.remove("hidden");
+    } else {
+      $("adminLogin").classList.remove("hidden");
+      $("adminDashboard").classList.add("hidden");
+      $("logoutButton").classList.add("hidden");
+    }
   };
 
   $("loginForm").onsubmit = async e => {
@@ -1995,17 +2360,7 @@
     }
 
     if (authenticated) {
-      adminAuthenticated = true;
-      $("adminLogin").classList.add("hidden");
-      $("adminDashboard").classList.remove("hidden");
-      $("logoutButton").classList.remove("hidden");
-      $("adminOrderDate").value = adminFilterDate;
-      refreshAdminStats();
-      renderOrdersList();
-      renderAdminProducts();
-      supabaseClient.channel('orders_channel').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {
-        toast("🔔 Novo pedido recebido!");
-      }).subscribe();
+      activateAdminSession();
     } else {
       $("loginError").textContent = "E-mail ou senha de administrador incorretos!";
     }
@@ -2013,22 +2368,29 @@
 
   $("logoutButton").onclick = () => {
     adminAuthenticated = false;
+    try {
+      localStorage.removeItem("sb_admin_logged");
+      sessionStorage.removeItem("sb_active_page");
+    } catch (_) {}
+    stopAdminSync();
     setPage("homePage");
     if ($("adminEmail")) $("adminEmail").value = "";
     if ($("adminPassword")) $("adminPassword").value = "";
     $("adminLogin").classList.remove("hidden");
     $("adminDashboard").classList.add("hidden");
     $("logoutButton").classList.add("hidden");
+    toast("Você saiu do painel administrativo.");
   };
 
   document.querySelectorAll("[data-admin-tab]").forEach(b => b.onclick = () => {
     const tab = b.dataset.adminTab;
     document.querySelectorAll("[data-admin-tab]").forEach(x => x.classList.toggle("active", x === b));
-    ["orders", "products", "delivery"].forEach(k => {
+    ["orders", "products", "delivery", "security"].forEach(k => {
       const el = $("admin" + k[0].toUpperCase() + k.slice(1));
       if (el) el.classList.toggle("hidden", k !== tab);
     });
     if (tab === 'delivery') renderDeliverySettings();
+    if (tab === 'security') renderSecuritySettings();
   });
 
   $("filterOrdersBtn").onclick = async () => {
@@ -2086,6 +2448,24 @@
     await loadSettings();
     await loadProducts();
     await loadOrders();
+
+    let wasAdminLogged = false;
+    let savedActivePage = null;
+    try {
+      wasAdminLogged = localStorage.getItem("sb_admin_logged") === "true";
+      savedActivePage = sessionStorage.getItem("sb_active_page");
+    } catch (_) {}
+
+    if (wasAdminLogged) {
+      activateAdminSession();
+    }
+
+    if (savedActivePage && savedActivePage !== "homePage") {
+      setPage(savedActivePage);
+      if (savedActivePage === "myOrdersPage") await loadMyOrders();
+    } else if (window.location.hash === "#admin" || window.location.hash === "#adminPage") {
+      setPage("adminPage");
+    }
   })();
 
 })();

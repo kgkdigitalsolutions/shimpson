@@ -137,11 +137,10 @@
       <h2>Área administrativa</h2>
       <p>Acesse para gerenciar produtos, pedidos e entregas.</p>
       <form id="loginForm">
-        <label>E-mail do administrador<input id="adminEmail" type="email" placeholder="admin@simpson.com" required></label>
-        <label>Senha do administrador<input id="adminPassword" type="password" placeholder="Digite a senha" required></label>
+        <label>E-mail do administrador<input id="adminEmail" type="email" placeholder="Digite seu e-mail" required autocomplete="username"></label>
+        <label>Senha do administrador<input id="adminPassword" type="password" placeholder="Digite sua senha" required autocomplete="current-password"></label>
         <button class="button button-primary full" type="submit">ENTRAR NO PAINEL</button>
       </form>
-      <small style="display:block; margin-top:15px; color:#aaa; font-size:13px;">Acesso inicial: <b>admin@simpson.com</b> / senha: <b>admin1234</b></small>
       <p class="form-error" id="loginError"></p>
     </section>
     <section id="adminDashboard" class="hidden">
@@ -149,7 +148,8 @@
       <div class="admin-tabs">
         <button class="active" data-admin-tab="orders">Pedidos</button>
         <button data-admin-tab="products">Produtos</button>
-        <button data-admin-tab="delivery">Entrega & Pix</button>
+        <button data-admin-tab="delivery">Taxa de Entrega</button>
+        <button data-admin-tab="security">Segurança & Acesso</button>
       </div>
       <div id="adminOrders" class="admin-panel">
         <div class="admin-filter-bar" style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px; background: #222; padding: 10px; border-radius: 8px; border: 1px solid #333;">
@@ -161,6 +161,7 @@
       </div>
       <div id="adminProducts" class="admin-panel hidden"></div>
       <div id="adminDelivery" class="admin-panel hidden"></div>
+      <div id="adminSecurity" class="admin-panel hidden"></div>
     </section>
   </main>
 
@@ -199,6 +200,9 @@
         <div id="pixStatusIndicator" style="display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--yellow); background: #26210f; border: 1px solid #665219; padding: 4px 12px; border-radius: 20px; margin-top: 6px;">
           <span class="pulse-dot"></span>
           <span id="pixStatusText">Aguardando pagamento...</span>
+        </div>
+        <div style="margin-top: 8px; font-size: 12px; color: #aaa;">
+          Titular: <b style="color: #fff;">Filipi de souza moreira</b> • Chave: <b style="color: #fff;">(61) 99274-9059</b>
         </div>
       </div>
 
