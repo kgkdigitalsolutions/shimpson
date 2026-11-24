@@ -22,6 +22,14 @@ if (!globalThis.crypto.getRandomValues) {
   globalThis.crypto.getRandomValues = (arr) => crypto.randomFillSync(arr);
 }
 
+// Previne crash fatal da aplicação por exceções ou rejeições não tratadas
+process.on('uncaughtException', (err) => {
+  console.error('⚠️ [CRASH PREVENIDO] Exceção não capturada:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('⚠️ [CRASH PREVENIDO] Rejeição não tratada:', reason);
+});
+
 import 'dotenv/config';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
@@ -311,6 +319,52 @@ async function verificarNovosPix(client, origem = "rotina") {
   }
 }
 
+let pollingInterval = null;
+let heartbeatInterval = null;
+let reconnectTimer = null;
+let servidorHttpIniciado = false;
+
+function iniciarServidorHealthcheck() {
+  const PORT = process.env.PORT;
+  if (!PORT || servidorHttpIniciado) return;
+  servidorHttpIniciado = true;
+
+  const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      status: 'online',
+      service: 'Simpson Burguer Pix Listener',
+      time: new Date().toISOString()
+    }));
+  });
+
+  server.on('error', (err) => {
+    console.error(`[${agora()}] ⚠️ Erro no servidor HTTP de Healthcheck:`, err.message);
+  });
+
+  server.listen(PORT, () => {
+    console.log(`✓ [Healthcheck] Servidor HTTP ativo na porta ${PORT} para manter o serviço no ar.`);
+  });
+}
+
+function agendarReconexao(ms = 5000) {
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+    pollingInterval = null;
+  }
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+  }
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    iniciarLeitorEmail();
+  }, ms);
+}
+
 /**
  * Inicia o cliente IMAP com Gmail
  */
@@ -326,20 +380,8 @@ export async function iniciarLeitorEmail() {
   }
 
   // Se estiver em ambiente de nuvem (Render, Railway, Fly.io) que fornece PORT,
-  // inicia um servidor HTTP simples para healthcheck e manter o serviço acordado
-  const PORT = process.env.PORT;
-  if (PORT) {
-    http.createServer((req, res) => {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        status: 'online',
-        service: 'Simpson Burguer Pix Listener',
-        time: new Date().toISOString()
-      }));
-    }).listen(PORT, () => {
-      console.log(`✓ [Healthcheck] Servidor HTTP ativo na porta ${PORT} para manter o serviço no ar.`);
-    });
-  }
+  // inicia um servidor HTTP simples para healthcheck e manter o serviço acordado (apenas 1x)
+  iniciarServidorHealthcheck();
 
   const client = new ImapFlow({
     host: 'imap.gmail.com',
@@ -358,7 +400,7 @@ export async function iniciarLeitorEmail() {
 
   client.on('close', () => {
     console.log(`[${agora()}] 🔄 [IMAP CONEXÃO ENCERRADA] Reconectando em 5 segundos...`);
-    setTimeout(iniciarLeitorEmail, 5000);
+    agendarReconexao(5000);
   });
 
   try {
@@ -386,12 +428,14 @@ export async function iniciarLeitorEmail() {
     });
 
     // 3. Checagem periódica a cada 5 segundos como garantia de contingência
-    setInterval(() => {
+    if (pollingInterval) clearInterval(pollingInterval);
+    pollingInterval = setInterval(() => {
       verificarNovosPix(client, "polling 5s");
     }, 5000);
 
     // 4. Batimento cardíaco a cada 60 segundos para confirmação visual no terminal
-    setInterval(() => {
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    heartbeatInterval = setInterval(() => {
       if (client.usable) {
         console.log(`[${agora()}] 🟢 Robô ativo | Monitorando e-mails do Nubank...`);
       }
@@ -400,7 +444,7 @@ export async function iniciarLeitorEmail() {
   } catch (err) {
     console.error(`[${agora()}] ❌ Falha na conexão IMAP:`, err.message);
     console.log('   Dica: Certifique-se de que a "Senha de App" de 16 letras foi gerada no Google.');
-    setTimeout(iniciarLeitorEmail, 10000);
+    agendarReconexao(10000);
   }
 }
 
