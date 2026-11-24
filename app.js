@@ -251,8 +251,20 @@
   };
 
   const categoryLabel = c => ({
-    burgers: "Burger",
+    tradicionais: "Tradicional",
+    especiais: "Especial",
+    artesanais: "Artesanal",
+    hotdogs: "Hot-Dog",
     combos: "Combo",
+    combos_caixa: "Combo na Caixa",
+    fritas: "Fritas",
+    pastel: "Pastel",
+    cremes: "Creme",
+    acai: "Açaí no Copo",
+    caldo_cana: "Caldo de Cana",
+    refrigerantes: "Refrigerante",
+    cerveja: "Cerveja",
+    burgers: "Burger",
     acompanhamentos: "Acompanhamento",
     bebidas: "Bebida"
   }[c] || c);
@@ -433,16 +445,68 @@
     }
   };
 
+  const HOUSE_SAUCE_OPTIONS = [
+    { name: "Molho: Molho Verde", price: 0.0, section: "Molho da Casa (Incluso)", type: "radio", group: "house_sauce_included", default: true },
+    { name: "Molho: Molho Barbecue", price: 0.0, section: "Molho da Casa (Incluso)", type: "radio", group: "house_sauce_included" },
+    { name: "Molho: Molho de Alho", price: 0.0, section: "Molho da Casa (Incluso)", type: "radio", group: "house_sauce_included" },
+    { name: "Molho: Mostarda e Mel", price: 0.0, section: "Molho da Casa (Incluso)", type: "radio", group: "house_sauce_included" },
+    { name: "Molho: Bacon Defumado", price: 0.0, section: "Molho da Casa (Incluso)", type: "radio", group: "house_sauce_included" },
+    { name: "Molho: Molho Verde extra", price: 2.0, section: "Molho Adicional (R$ 2,00)", type: "checkbox", group: "house_sauce_extra" },
+    { name: "Molho: Molho Barbecue extra", price: 2.0, section: "Molho Adicional (R$ 2,00)", type: "checkbox", group: "house_sauce_extra" },
+    { name: "Molho: Molho de Alho extra", price: 2.0, section: "Molho Adicional (R$ 2,00)", type: "checkbox", group: "house_sauce_extra" },
+    { name: "Molho: Mostarda e Mel extra", price: 2.0, section: "Molho Adicional (R$ 2,00)", type: "checkbox", group: "house_sauce_extra" },
+    { name: "Molho: Bacon Defumado extra", price: 2.0, section: "Molho Adicional (R$ 2,00)", type: "checkbox", group: "house_sauce_extra" }
+  ];
+
+  const FRIES_EXTRAS = [
+    { name: "Batata: Bacon", price: 4.99, section: "Adicionais da Batata", type: "checkbox", group: "combo_side_extras" },
+    { name: "Batata: Cheddar", price: 4.99, section: "Adicionais da Batata", type: "checkbox", group: "combo_side_extras" },
+    { name: "Batata: Queijo Mussarela", price: 19.99, section: "Adicionais da Batata", type: "checkbox", group: "combo_side_extras" }
+  ];
+
+  const ACAI_TOPPINGS = [
+    { name: "Leite em Pó", price: 0.0, section: "Acompanhamentos do Açaí", type: "checkbox", group: "acai_toppings" },
+    { name: "Granola", price: 0.0, section: "Acompanhamentos do Açaí", type: "checkbox", group: "acai_toppings" },
+    { name: "Paçoca", price: 0.0, section: "Acompanhamentos do Açaí", type: "checkbox", group: "acai_toppings" },
+    { name: "Amendoim", price: 0.0, section: "Acompanhamentos do Açaí", type: "checkbox", group: "acai_toppings" },
+    { name: "M&M's", price: 0.0, section: "Acompanhamentos do Açaí", type: "checkbox", group: "acai_toppings" },
+    { name: "Leite Condensado", price: 0.0, section: "Acompanhamentos do Açaí", type: "checkbox", group: "acai_toppings" }
+  ];
+
+  const COMBO_DEFAULT_OPTIONS = [
+    { name: "Bebida: Coca-Cola 200ml", price: 0.0, section: "1. Refrigerante 200ml do Combo", type: "radio", group: "combo_drink", default: true },
+    { name: "Bebida: Coca-Cola Sem Açúcar 200ml", price: 0.0, section: "1. Refrigerante 200ml do Combo", type: "radio", group: "combo_drink" },
+    { name: "Bebida: Guaraná Antarctica 200ml", price: 0.0, section: "1. Refrigerante 200ml do Combo", type: "radio", group: "combo_drink" },
+    { name: "Bebida: Fanta Laranja 200ml", price: 0.0, section: "1. Refrigerante 200ml do Combo", type: "radio", group: "combo_drink" },
+    { name: "Bebida: Sprite 200ml", price: 0.0, section: "1. Refrigerante 200ml do Combo", type: "radio", group: "combo_drink" },
+    ...FRIES_EXTRAS,
+    ...HOUSE_SAUCE_OPTIONS
+  ];
+
   const DEFAULT_CATEGORY_OPTIONS = {
-    burgers: [
-      { name: "Bacon crocante extra", price: 5.0, section: "Adicionais do Burger", type: "checkbox", group: "burger_extras" },
-      { name: "Queijo extra", price: 4.0, section: "Adicionais do Burger", type: "checkbox", group: "burger_extras" },
-      { name: "Cheddar cremoso extra", price: 4.0, section: "Adicionais do Burger", type: "checkbox", group: "burger_extras" },
-      { name: "Hambúrguer extra (150g)", price: 8.0, section: "Adicionais do Burger", type: "checkbox", group: "burger_extras" },
-      { name: "Ovo frito na chapa", price: 3.0, section: "Adicionais do Burger", type: "checkbox", group: "burger_extras" },
-      { name: "Molho especial da casa", price: 2.0, section: "Adicionais do Burger", type: "checkbox", group: "burger_extras" },
-      { name: "Cebola caramelizada", price: 3.0, section: "Adicionais do Burger", type: "checkbox", group: "burger_extras" }
+    tradicionais: HOUSE_SAUCE_OPTIONS,
+    especiais: HOUSE_SAUCE_OPTIONS,
+    artesanais: HOUSE_SAUCE_OPTIONS,
+    hotdogs: HOUSE_SAUCE_OPTIONS,
+    combos: COMBO_DEFAULT_OPTIONS,
+    combos_caixa: [
+      ...HOUSE_SAUCE_OPTIONS,
+      ...FRIES_EXTRAS
     ],
+    fritas: FRIES_EXTRAS,
+    pastel: [],
+    cremes: [],
+    acai: ACAI_TOPPINGS,
+    caldo_cana: [],
+    refrigerantes: [
+      { name: "Bebida: Coca-Cola", price: 0.0, section: "Sabor do Refrigerante", type: "radio", group: "refri_flavor", default: true },
+      { name: "Bebida: Coca-Cola Sem Açúcar", price: 0.0, section: "Sabor do Refrigerante", type: "radio", group: "refri_flavor" },
+      { name: "Bebida: Guaraná Antarctica", price: 0.0, section: "Sabor do Refrigerante", type: "radio", group: "refri_flavor" },
+      { name: "Bebida: Fanta Laranja", price: 0.0, section: "Sabor do Refrigerante", type: "radio", group: "refri_flavor" },
+      { name: "Bebida: Sprite", price: 0.0, section: "Sabor do Refrigerante", type: "radio", group: "refri_flavor" }
+    ],
+    cerveja: [],
+    burgers: HOUSE_SAUCE_OPTIONS,
     bebidas: [
       { name: "Coca-Cola 350ml", price: 0.0, section: "Opções de Bebida", type: "radio", group: "drink_flavor", default: true },
       { name: "Coca-Cola Sem Açúcar 350ml", price: 0.0, section: "Opções de Bebida", type: "radio", group: "drink_flavor" },
@@ -463,37 +527,7 @@
       { name: "Calda de chocolate extra", price: 2.0, section: "Adicionais do Shake", type: "checkbox", group: "shake_extras" },
       { name: "Calda de morango extra", price: 2.0, section: "Adicionais do Shake", type: "checkbox", group: "shake_extras" }
     ],
-    acompanhamentos: [
-      { name: "Cheddar cremoso derretido", price: 5.0, section: "Adicionais da Porção", type: "checkbox", group: "side_extras" },
-      { name: "Bacon crocante em cubos", price: 5.0, section: "Adicionais da Porção", type: "checkbox", group: "side_extras" },
-      { name: "Cheddar cremoso + Bacon", price: 8.0, section: "Adicionais da Porção", type: "checkbox", group: "side_extras" },
-      { name: "Pote de Molho especial da casa (50g)", price: 3.0, section: "Molhos", type: "checkbox", group: "side_extras" },
-      { name: "Pote de Molho Barbecue defumado (50g)", price: 3.0, section: "Molhos", type: "checkbox", group: "side_extras" },
-      { name: "Pote de Maionese de alho (50g)", price: 3.0, section: "Molhos", type: "checkbox", group: "side_extras" },
-      { name: "Parmesão ralado", price: 4.0, section: "Adicionais da Porção", type: "checkbox", group: "side_extras" }
-    ],
-    combos: [
-      { name: "Bebida: Coca-Cola Lata 350ml", price: 0.0, section: "1. Bebida do Combo", type: "radio", group: "combo_drink", default: true },
-      { name: "Bebida: Coca-Cola Zero 350ml", price: 0.0, section: "1. Bebida do Combo", type: "radio", group: "combo_drink" },
-      { name: "Bebida: Guaraná Antarctica 350ml", price: 0.0, section: "1. Bebida do Combo", type: "radio", group: "combo_drink" },
-      { name: "Bebida: Guaraná Antarctica Zero 350ml", price: 0.0, section: "1. Bebida do Combo", type: "radio", group: "combo_drink" },
-      { name: "Bebida: Fanta Laranja 350ml", price: 0.0, section: "1. Bebida do Combo", type: "radio", group: "combo_drink" },
-      { name: "Bebida: Sprite 350ml", price: 0.0, section: "1. Bebida do Combo", type: "radio", group: "combo_drink" },
-      { name: "Bebida: Água sem Gás", price: 0.0, section: "1. Bebida do Combo", type: "radio", group: "combo_drink" },
-      { name: "Bebida: Trocar por Milk-shake Chocolate (+ R$ 9,00)", price: 9.0, section: "1. Bebida do Combo", type: "radio", group: "combo_drink" },
-      { name: "Bebida: Trocar por Milk-shake Morango (+ R$ 9,00)", price: 9.0, section: "1. Bebida do Combo", type: "radio", group: "combo_drink" },
-      { name: "Batata: Cheddar cremoso", price: 5.0, section: "2. Adicionais da Batata", type: "checkbox", group: "combo_side_extras" },
-      { name: "Batata: Bacon crocante em cubos", price: 5.0, section: "2. Adicionais da Batata", type: "checkbox", group: "combo_side_extras" },
-      { name: "Batata: Cheddar cremoso + Bacon", price: 8.0, section: "2. Adicionais da Batata", type: "checkbox", group: "combo_side_extras" },
-      { name: "Batata: Pote de molho especial (50g)", price: 3.0, section: "2. Adicionais da Batata", type: "checkbox", group: "combo_side_extras" },
-      { name: "Batata: Trocar por Onion Rings", price: 4.0, section: "2. Adicionais da Batata", type: "checkbox", group: "combo_side_extras" },
-      { name: "Burger: Bacon extra", price: 5.0, section: "3. Adicionais do Burger", type: "checkbox", group: "combo_burger_extras" },
-      { name: "Burger: Queijo extra", price: 4.0, section: "3. Adicionais do Burger", type: "checkbox", group: "combo_burger_extras" },
-      { name: "Burger: Cheddar cremoso extra", price: 4.0, section: "3. Adicionais do Burger", type: "checkbox", group: "combo_burger_extras" },
-      { name: "Burger: Hambúrguer extra (150g)", price: 8.0, section: "3. Adicionais do Burger", type: "checkbox", group: "combo_burger_extras" },
-      { name: "Burger: Ovo frito na chapa", price: 3.0, section: "3. Adicionais do Burger", type: "checkbox", group: "combo_burger_extras" },
-      { name: "Burger: Cebola caramelizada", price: 3.0, section: "3. Adicionais do Burger", type: "checkbox", group: "combo_burger_extras" }
-    ]
+    acompanhamentos: []
   };
 
   const parseProductMeta = (product) => {
@@ -681,7 +715,7 @@
     if (meta.activeExtras && Array.isArray(meta.activeExtras)) {
       items = meta.activeExtras.filter(item => item.active !== false);
     } else {
-      const cat = product.category || "burgers";
+      const cat = product.category || "tradicionais";
       const nameLower = (product.name || "").toLowerCase();
       const descLower = (product.description || "").toLowerCase();
       const fullText = `${nameLower} ${descLower}`;
@@ -695,7 +729,7 @@
           items = allDrinkOptions.filter(o => o.group === "drink_flavor" || o.group === "drink_extras");
         }
       } else {
-        items = DEFAULT_CATEGORY_OPTIONS[cat] || DEFAULT_CATEGORY_OPTIONS.burgers;
+        items = DEFAULT_CATEGORY_OPTIONS[cat] || DEFAULT_CATEGORY_OPTIONS.tradicionais;
       }
     }
 
@@ -1511,8 +1545,19 @@
           <label>Nome<input name="name" required style="font-size: 16px;"></label>
           <label>Preço (R$)<input name="price" type="number" min=".01" step=".01" required style="font-size: 16px;"></label>
           <label>Categoria<select name="category" id="productCategorySelect" style="font-size: 16px;">
-            <option value="burgers">Burger</option>
+            <option value="tradicionais">Tradicional</option>
+            <option value="especiais">Especial</option>
+            <option value="artesanais">Artesanal</option>
+            <option value="hotdogs">Hot-Dog</option>
             <option value="combos">Combo</option>
+            <option value="combos_caixa">Combo na Caixa</option>
+            <option value="fritas">Fritas</option>
+            <option value="pastel">Pastel</option>
+            <option value="cremes">Creme</option>
+            <option value="acai">Açaí no Copo</option>
+            <option value="caldo_cana">Caldo de Cana</option>
+            <option value="refrigerantes">Refrigerante</option>
+            <option value="cerveja">Cerveja</option>
             <option value="acompanhamentos">Acompanhamento</option>
             <option value="bebidas">Bebida</option>
           </select></label>
@@ -1625,7 +1670,7 @@
     let currentEditingExtras = [];
 
     const getCandidateOptionsForCategory = (cat, prodName = "") => {
-      const allDefaults = DEFAULT_CATEGORY_OPTIONS[cat] || DEFAULT_CATEGORY_OPTIONS.burgers || [];
+      const allDefaults = DEFAULT_CATEGORY_OPTIONS[cat] || DEFAULT_CATEGORY_OPTIONS.tradicionais || [];
       const isShake = /shake|milk/i.test(prodName);
 
       return allDefaults.map(opt => {

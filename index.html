@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#111111">
-  <meta name="description" content="Simpson Burguer — hambúrguer artesanal, combos e delivery.">
-  <title>Simpson Burguer | Peça online</title>
+  <meta name="theme-color" content="#ffd900">
+  <meta name="description" content="Simpsons Burguer — hambúrguer artesanal, combos e delivery.">
+  <title>Simpsons Burguer | Peça online</title>
+  <link rel="icon" type="image/png" href="/logo-simpsons.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <!-- Supabase Client Library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -17,9 +18,9 @@
 <body>
   <div class="announcement"><span class="dot"></span> PEDIDOS ABERTOS <span class="announcement-sep">•</span> DELIVERY E RETIRADA</div>
   <header class="site-header">
-    <a class="brand" href="#" data-page="home" aria-label="Simpson Burguer início">
-      <span class="brand-mark">SB</span>
-      <span class="brand-name">SIMPSON <b>BURGUER</b><small>SMASH • BURGER • DELIVERY</small></span>
+    <a class="brand" href="#" data-page="home" aria-label="Simpsons Burguer início">
+      <img class="brand-logo" src="/logo-simpsons.png" alt="Simpsons Burguer Delivery">
+      <span class="brand-name">SIMPSONS <b>BURGUER</b><small>SMASH • BURGER • DELIVERY</small></span>
     </a>
     <nav class="main-nav" aria-label="Navegação principal">
       <a href="#cardapio">Cardápio</a><a href="#sobre">A casa</a><a href="#" data-page="myOrdersPage">Meus Pedidos</a>
@@ -40,6 +41,7 @@
         <div class="hero-actions"><a class="button button-primary" href="#cardapio">ESCOLHER MEU BURGER <span>↗</span></a><span class="hero-note">Feito na hora. Do nosso jeito.</span></div>
       </div>
       <div class="hero-image" role="img" aria-label="Hambúrguer artesanal com queijo e bacon">
+        <img class="hero-logo-badge" src="/logo-simpsons.png" alt="Simpsons Burguer Delivery">
         <div class="hero-stamp"><strong>100%</strong><span>NA CHAPA<br>NA HORA</span></div>
         <div class="hero-image-caption">SIMPLESMENTE<br><b>IRRESISTÍVEL.</b></div>
       </div>
@@ -60,10 +62,19 @@
       <div class="menu-toolbar">
         <div class="category-tabs" id="categoryTabs">
           <button class="category-tab active" data-category="todos">Todos</button>
-          <button class="category-tab" data-category="burgers">Burgers</button>
+          <button class="category-tab" data-category="tradicionais">Tradicionais</button>
+          <button class="category-tab" data-category="especiais">Especiais</button>
+          <button class="category-tab" data-category="artesanais">Artesanais</button>
+          <button class="category-tab" data-category="hotdogs">Hot-Dogs</button>
           <button class="category-tab" data-category="combos">Combos</button>
-          <button class="category-tab" data-category="acompanhamentos">Acompanhamentos</button>
-          <button class="category-tab" data-category="bebidas">Bebidas</button>
+          <button class="category-tab" data-category="combos_caixa">Combos na Caixa</button>
+          <button class="category-tab" data-category="fritas">Fritas</button>
+          <button class="category-tab" data-category="pastel">Pastel</button>
+          <button class="category-tab" data-category="cremes">Cremes</button>
+          <button class="category-tab" data-category="acai">Açaí no Copo</button>
+          <button class="category-tab" data-category="caldo_cana">Caldo de Cana</button>
+          <button class="category-tab" data-category="refrigerantes">Refrigerantes</button>
+          <button class="category-tab" data-category="cerveja">Cerveja</button>
         </div>
         <label class="search-box"><span>⌕</span><input id="searchInput" type="search" placeholder="Buscar no cardápio"></label>
       </div>
@@ -71,13 +82,13 @@
     </section>
 
     <section class="promo-band" id="sobre">
-      <div class="promo-symbol">SB<span>®</span></div>
-      <div><span class="eyebrow">A FILOSOFIA SIMPSON</span><h2>SEM ATALHO.<br><em>SÓ SABOR.</em></h2></div>
+      <div class="promo-logo-wrap"><img class="promo-logo" src="/logo-simpsons.png" alt="Simpsons Burguer Delivery"></div>
+      <div><span class="eyebrow">A FILOSOFIA SIMPSONS</span><h2>SEM ATALHO.<br><em>SÓ SABOR.</em></h2></div>
       <p>A gente acredita que um bom burger começa na escolha dos ingredientes e termina naquele sorriso depois da primeira mordida.</p>
     </section>
     <footer class="site-footer">
-      <a class="brand" href="#"><span class="brand-mark">SB</span><span class="brand-name">SIMPSON <b>BURGUER</b><small>SMASH • BURGER • DELIVERY</small></span></a>
-      <span>© <span id="year"></span> Simpson Burguer. Todos os direitos reservados.</span>
+      <a class="brand" href="#"><img class="brand-logo" src="/logo-simpsons.png" alt="Simpsons Burguer Delivery"><span class="brand-name">SIMPSONS <b>BURGUER</b><small>SMASH • BURGER • DELIVERY</small></span></a>
+      <span>© <span id="year"></span> Simpsons Burguer. Todos os direitos reservados.</span>
       <button class="admin-link" id="adminShortcut">Acesso administrativo</button>
     </footer>
   </main>
@@ -133,7 +144,7 @@
     <button class="back-link" data-page="home">← Voltar à loja</button>
     <div class="admin-title"><div><span class="eyebrow">SIMPSON BURGUER / GESTÃO</span><h1>PAINEL <em>ADMIN.</em></h1></div><button class="button button-outline hidden" id="logoutButton">SAIR</button></div>
     <section id="adminLogin" class="login-card">
-      <div class="login-icon">SB</div>
+      <div class="login-icon login-icon-img"><img src="/logo-simpsons.png" alt="Simpsons Burguer"></div>
       <h2>Área administrativa</h2>
       <p>Acesse para gerenciar produtos, pedidos e entregas.</p>
       <form id="loginForm">
